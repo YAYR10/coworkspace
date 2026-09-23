@@ -1,0 +1,132 @@
+name: CI/CD CoworkSpace
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  # 1) Lint + pruebas unitarias por servicio (pipeline independiente por microservicio)
+  test:
+    name: Test ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [api-gateway, membership-service, space-service, booking-service, billing-service]
+    defaults:
+      run:
+        working-directory: services/${{ matrix.service }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: services/${{ matrix.service }}/package-lock.json
+      - run: npm ci
+      - name: Prisma generate
+        if: hashFiles(format('services/{0}/prisma/schema.prisma', matrix.service)) != ''
+        run: npx prisma generate
+      - run: npm run lint
+      - run: npm test -- --ci
+      - run: npm run build
+
+  # 2) Pruebas de integración + carga (k6) del Booking Service con todo el stack levantado
+  load-test:
+    name: Carga k6 (Booking Service)
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      RATE_LIMIT_PER_MINUTE: 1000000
+    steps:
+      - uses: actions/checkout@v4
+      - name: Levantar el stack
+        run: docker compose up -d --build
+      - name: Esperar a que los servicios estén listos
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fs http://localhost:3000/health/services | grep -qv '"down"'; then
+              curl -s http://localhost:3000/health/services && exit 0
+            fi
+            sleep 5
+          done
+          docker compose logs
+          exit 1
+      - name: Ejecutar k6
+        run: |
+          docker run --rm --network host -v "$PWD/load-tests:/scripts" grafana/k6:0.54.0 \
+            run -e BASE_URL=http://localhost:3000 /scripts/booking-peak.js
+      - name: Logs si falla
+        if: failure()
+        run: docker compose logs --tail=200
+      - name: Apagar
+        if: always()
+        run: docker compose down -v
+
+  # 3) Construcción y publicación de imágenes Docker en GHCR
+  build-and-push:
+    name: Imagen ${{ matrix.service }}
+    needs: [test, load-test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        service: [api-gateway, membership-service, space-service, booking-service, billing-service]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Nombre de imagen en minúsculas
+        run: echo "IMAGE=${REGISTRY}/${GITHUB_REPOSITORY_OWNER,,}/coworkspace-${{ matrix.service }}" >> "$GITHUB_ENV"
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: services/${{ matrix.service }}
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  # 4) Despliegue automático en Render (deploy hook por servicio)
+  deploy:
+    name: Deploy ${{ matrix.service }}
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - service: membership-service
+            hook: RENDER_DEPLOY_HOOK_MEMBERSHIP
+          - service: space-service
+            hook: RENDER_DEPLOY_HOOK_SPACE
+          - service: booking-service
+            hook: RENDER_DEPLOY_HOOK_BOOKING
+          - service: billing-service
+            hook: RENDER_DEPLOY_HOOK_BILLING
+          - service: api-gateway
+            hook: RENDER_DEPLOY_HOOK_GATEWAY
+    steps:
+      - name: Disparar deploy en Render con la imagen de este commit
+        env:
+          HOOK: ${{ secrets[matrix.hook] }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::warning::Secret ${{ matrix.hook }} no configurado; se omite el deploy de ${{ matrix.service }}"
+            exit 0
+          fi
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/coworkspace-${{ matrix.service }}:${GITHUB_SHA}"
+          ENCODED=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "$IMAGE")
+          curl -fsS -X POST "${HOOK}&imgURL=${ENCODED}"

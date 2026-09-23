@@ -1,0 +1,68 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ResourceType {
+  ROOM
+  DESK
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum WaitlistStatus {
+  WAITING
+  PROMOTED
+  EXPIRED
+}
+
+model Booking {
+  id           String        @id @default(uuid())
+  memberId     String        @map("member_id")
+  resourceId   String        @map("resource_id")
+  resourceType ResourceType  @map("resource_type")
+  locationId   String        @map("location_id")
+  startTime    DateTime      @map("start_time")
+  endTime      DateTime      @map("end_time")
+  status       BookingStatus @default(PENDING)
+  cancelReason String?       @map("cancel_reason")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  /// Índice crítico del PDF para detectar solapamientos
+  @@index([resourceId, startTime])
+  @@index([memberId])
+  @@index([status, createdAt])
+  @@map("bookings")
+}
+
+/// Versión por recurso para el bloqueo optimista
+model ResourceLock {
+  resourceId String @id @map("resource_id")
+  version    Int    @default(0)
+
+  @@map("resource_locks")
+}
+
+model WaitlistEntry {
+  id           String         @id @default(uuid())
+  memberId     String         @map("member_id")
+  resourceId   String         @map("resource_id")
+  resourceType ResourceType   @map("resource_type")
+  startTime    DateTime       @map("start_time")
+  endTime      DateTime       @map("end_time")
+  status       WaitlistStatus @default(WAITING)
+  bookingId    String?        @map("booking_id")
+  createdAt    DateTime       @default(now()) @map("created_at")
+
+  @@index([resourceId, status, startTime])
+  @@map("waitlist_entries")
+}

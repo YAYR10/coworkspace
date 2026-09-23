@@ -1,0 +1,107 @@
+# Entorno local completo: docker compose up --build
+# Observabilidad opcional: docker compose --profile observability up --build
+x-common-env: &common-env
+  REDIS_URL: redis://redis:6379
+  DATABASE_URL: postgresql://cowork:cowork@postgres:5432/coworkspace
+  INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dev-internal-key}
+
+x-depends: &depends
+  postgres:
+    condition: service_healthy
+  redis:
+    condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: cowork
+      POSTGRES_PASSWORD: cowork
+      POSTGRES_DB: coworkspace
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cowork -d coworkspace"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
+  membership-service:
+    build: ./services/membership-service
+    environment:
+      <<: *common-env
+      PORT: 3001
+      SERVICE_NAME: membership-service
+      DB_SCHEMA: membership
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-cambia-esto}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@coworkspace.co}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin12345!}
+    depends_on: *depends
+
+  space-service:
+    build: ./services/space-service
+    environment:
+      <<: *common-env
+      PORT: 3002
+      SERVICE_NAME: space-service
+      DB_SCHEMA: space
+    depends_on: *depends
+
+  booking-service:
+    build: ./services/booking-service
+    environment:
+      <<: *common-env
+      PORT: 3003
+      SERVICE_NAME: booking-service
+      DB_SCHEMA: booking
+      SPACE_SERVICE_URL: http://space-service:3002
+    depends_on: *depends
+
+  billing-service:
+    build: ./services/billing-service
+    environment:
+      <<: *common-env
+      PORT: 3004
+      SERVICE_NAME: billing-service
+      DB_SCHEMA: billing
+      EXTRA_CHARGE_APPROVAL_LIMIT: 200000
+    depends_on: *depends
+
+  api-gateway:
+    build: ./services/api-gateway
+    ports: ["3000:3000"]
+    environment:
+      PORT: 3000
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-cambia-esto}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dev-internal-key}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-120}
+      MEMBERSHIP_SERVICE_URL: http://membership-service:3001
+      SPACE_SERVICE_URL: http://space-service:3002
+      BOOKING_SERVICE_URL: http://booking-service:3003
+      BILLING_SERVICE_URL: http://billing-service:3004
+    depends_on: [membership-service, space-service, booking-service, billing-service]
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    profiles: [observability]
+    volumes: [./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro]
+    ports: ["9090:9090"]
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    profiles: [observability]
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes: [./observability/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro]
+    ports: ["3100:3000"]
+    depends_on: [prometheus]
+
+volumes:
+  pgdata:

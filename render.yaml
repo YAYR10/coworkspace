@@ -1,0 +1,124 @@
+# Blueprint de Render. En Render: New > Blueprint > selecciona este repositorio.
+# ANTES de aplicarlo, reemplaza TU_USUARIO_GITHUB (en minúsculas) en las URLs de imagen.
+envVarGroups:
+  - name: coworkspace-shared
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      - key: INTERNAL_API_KEY
+        generateValue: true
+
+databases:
+  - name: coworkspace-db
+    plan: free
+    databaseName: coworkspace
+    user: coworkspace
+
+services:
+  - type: keyvalue
+    name: coworkspace-redis
+    plan: free
+    ipAllowList: []            # solo red privada de Render
+    maxmemoryPolicy: noeviction
+
+  - type: web
+    name: coworkspace-membership
+    runtime: image
+    image:
+      url: ghcr.io/TU_USUARIO_GITHUB/coworkspace-membership-service:latest
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - fromGroup: coworkspace-shared
+      - key: SERVICE_NAME
+        value: membership-service
+      - key: DB_SCHEMA
+        value: membership
+      - key: DATABASE_URL
+        fromDatabase: { name: coworkspace-db, property: connectionString }
+      - key: REDIS_URL
+        fromService: { type: keyvalue, name: coworkspace-redis, property: connectionString }
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+
+  - type: web
+    name: coworkspace-space
+    runtime: image
+    image:
+      url: ghcr.io/TU_USUARIO_GITHUB/coworkspace-space-service:latest
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - fromGroup: coworkspace-shared
+      - key: SERVICE_NAME
+        value: space-service
+      - key: DB_SCHEMA
+        value: space
+      - key: DATABASE_URL
+        fromDatabase: { name: coworkspace-db, property: connectionString }
+      - key: REDIS_URL
+        fromService: { type: keyvalue, name: coworkspace-redis, property: connectionString }
+
+  - type: web
+    name: coworkspace-booking
+    runtime: image
+    image:
+      url: ghcr.io/TU_USUARIO_GITHUB/coworkspace-booking-service:latest
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - fromGroup: coworkspace-shared
+      - key: SERVICE_NAME
+        value: booking-service
+      - key: DB_SCHEMA
+        value: booking
+      - key: DATABASE_URL
+        fromDatabase: { name: coworkspace-db, property: connectionString }
+      - key: REDIS_URL
+        fromService: { type: keyvalue, name: coworkspace-redis, property: connectionString }
+      - key: SPACE_SERVICE_URL      # https://coworkspace-space.onrender.com (o la URL que te asigne Render)
+        sync: false
+      - key: SPACE_TIMEOUT_MS
+        value: "60000"
+
+  - type: web
+    name: coworkspace-billing
+    runtime: image
+    image:
+      url: ghcr.io/TU_USUARIO_GITHUB/coworkspace-billing-service:latest
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - fromGroup: coworkspace-shared
+      - key: SERVICE_NAME
+        value: billing-service
+      - key: DB_SCHEMA
+        value: billing
+      - key: DATABASE_URL
+        fromDatabase: { name: coworkspace-db, property: connectionString }
+      - key: REDIS_URL
+        fromService: { type: keyvalue, name: coworkspace-redis, property: connectionString }
+      - key: EXTRA_CHARGE_APPROVAL_LIMIT
+        value: "200000"
+
+  - type: web
+    name: coworkspace-gateway
+    runtime: image
+    image:
+      url: ghcr.io/TU_USUARIO_GITHUB/coworkspace-api-gateway:latest
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - fromGroup: coworkspace-shared
+      - key: MEMBERSHIP_SERVICE_URL   # https://coworkspace-membership.onrender.com
+        sync: false
+      - key: SPACE_SERVICE_URL        # https://coworkspace-space.onrender.com
+        sync: false
+      - key: BOOKING_SERVICE_URL      # https://coworkspace-booking.onrender.com
+        sync: false
+      - key: BILLING_SERVICE_URL      # https://coworkspace-billing.onrender.com
+        sync: false
+      - key: CORS_ORIGIN              # URL del frontend en Vercel
+        sync: false
