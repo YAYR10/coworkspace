@@ -25,7 +25,7 @@ services:
     name: coworkspace-membership
     runtime: image
     image:
-      url: ghcr.io/TU_USUARIO_GITHUB/coworkspace-membership-service:latest
+      url: ghcr.io/yayr10/coworkspace-membership-service:latest
     plan: free
     healthCheckPath: /health
     envVars:
@@ -47,7 +47,7 @@ services:
     name: coworkspace-space
     runtime: image
     image:
-      url: ghcr.io/TU_USUARIO_GITHUB/coworkspace-space-service:latest
+      url: ghcr.io/yayr10/coworkspace-space-service:latest
     plan: free
     healthCheckPath: /health
     envVars:
@@ -65,7 +65,7 @@ services:
     name: coworkspace-booking
     runtime: image
     image:
-      url: ghcr.io/TU_USUARIO_GITHUB/coworkspace-booking-service:latest
+      url: ghcr.io/yayr10/coworkspace-booking-service:latest
     plan: free
     healthCheckPath: /health
     envVars:
@@ -87,7 +87,7 @@ services:
     name: coworkspace-billing
     runtime: image
     image:
-      url: ghcr.io/TU_USUARIO_GITHUB/coworkspace-billing-service:latest
+      url: ghcr.io/yayr10/coworkspace-billing-service:latest
     plan: free
     healthCheckPath: /health
     envVars:
@@ -107,7 +107,7 @@ services:
     name: coworkspace-gateway
     runtime: image
     image:
-      url: ghcr.io/TU_USUARIO_GITHUB/coworkspace-api-gateway:latest
+      url: ghcr.io/yayr10/coworkspace-api-gateway:latest
     plan: free
     healthCheckPath: /health
     envVars:
