@@ -164,3 +164,5 @@ Cada servicio expone además `GET /health` y `GET /metrics` (Prometheus).
 | `EXTRA_ROOM_HOURLY_RATE`, `EXTRA_DESK_HOURLY_RATE` | billing | `50000`, `15000` |
 | `EXTRA_CHARGE_APPROVAL_LIMIT`, `PAYMENT_FORCE_REJECT` | billing | `200000`, `false` |
 | `RATE_LIMIT_PER_MINUTE`, `LOGIN_RATE_LIMIT_PER_MINUTE`, `CORS_ORIGIN` | gateway | `120`, `10`, `*` |
+
+Desplegado en Render: https://coworkspace-gateway.onrender.com
