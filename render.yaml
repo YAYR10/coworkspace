@@ -122,3 +122,15 @@ services:
         sync: false
       - key: CORS_ORIGIN              # URL del frontend en Vercel
         sync: false
+
+  # ---------- Frontend (sitio estático, gratis y no se duerme) ----------
+  - type: web
+    name: coworkspace-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://coworkspace-gateway.onrender.com
+
