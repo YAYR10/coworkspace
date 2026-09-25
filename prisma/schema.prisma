@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  MEMBER
+  ADMIN
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+model Member {
+  id            String         @id @default(uuid())
+  name          String
+  email         String         @unique
+  passwordHash  String         @map("password_hash")
+  role          Role           @default(MEMBER)
+  createdAt     DateTime       @default(now()) @map("created_at")
+  subscriptions Subscription[]
+  refreshTokens RefreshToken[]
+
+  @@map("members")
+}
+
+model MembershipPlan {
+  id             String         @id @default(uuid())
+  code           String         @unique
+  name           String
+  price          Int
+  /// Tipos de recurso incluidos en el plan: DESK, ROOM
+  resourceAccess String[]       @map("resource_access")
+  description    String?
+  subscriptions  Subscription[]
+
+  @@map("membership_plans")
+}
+
+model Subscription {
+  id        String             @id @default(uuid())
+  memberId  String             @map("member_id")
+  planId    String             @map("plan_id")
+  status    SubscriptionStatus @default(ACTIVE)
+  autoRenew Boolean            @default(true) @map("auto_renew")
+  startedAt DateTime           @default(now()) @map("started_at")
+  renewsAt  DateTime           @map("renews_at")
+  member    Member             @relation(fields: [memberId], references: [id])
+  plan      MembershipPlan     @relation(fields: [planId], references: [id])
+
+  @@index([memberId, status])
+  @@index([status, renewsAt])
+  @@map("subscriptions")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  memberId  String    @map("member_id")
+  tokenHash String    @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  member    Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
