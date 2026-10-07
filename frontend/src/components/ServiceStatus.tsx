@@ -6,10 +6,13 @@ const NAMES: Record<string, string> = {
   space: 'Espacios',
   booking: 'Reservas',
   billing: 'Facturación',
+  notification: 'Notificaciones',
 };
-const ORDER = ['membership', 'space', 'booking', 'billing'];
+/** Servicios sin los que la app no funciona. Notificaciones es asíncrono: si tarda, la app igual abre. */
+const CORE = ['membership', 'space', 'booking', 'billing'];
+const ORDER = [...CORE, 'notification'];
 
-export const allUp = (r: HealthReport | null) => !!r && ORDER.every((k) => r[k]?.status === 'up');
+export const allUp = (r: HealthReport | null) => !!r && CORE.every((k) => r[k]?.status === 'up');
 
 /** Pantalla inicial: en el plan gratuito de Render los servicios se duermen y tardan ~1 min en despertar. */
 export function WakeUp({ onReady }: { onReady: () => void }) {
@@ -99,20 +102,22 @@ export function StatusChip() {
     return () => document.removeEventListener('mousedown', close);
   }, [open]);
 
-  const up = ORDER.filter((k) => report?.[k]?.status === 'up').length;
+  // Si el gateway aún no conoce Notificaciones (despliegue anterior), se muestran solo los 4 principales
+  const shown = report && !report.notification ? CORE : ORDER;
+  const up = shown.filter((k) => report?.[k]?.status === 'up').length;
   return (
     <div className="status" ref={ref}>
       <button className="status-btn" aria-expanded={open} onClick={() => setOpen(!open)}>
         <span className="status-dots" aria-hidden="true">
-          {ORDER.map((k) => (
+          {shown.map((k) => (
             <i key={k} className={report?.[k]?.status === 'up' ? 'on' : ''} />
           ))}
         </span>
-        {up}/4<span className="status-word"> servicios</span>
+        {up}/{shown.length}<span className="status-word"> servicios</span>
       </button>
       {open && (
         <div className="status-pop">
-          {ORDER.map((k) => (
+          {shown.map((k) => (
             <p key={k}>
               <span className={`dot ${report?.[k]?.status === 'up' ? 'dot-up' : 'dot-down'}`} aria-hidden="true" />
               <span>{NAMES[k]}</span>

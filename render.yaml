@@ -103,6 +103,38 @@ services:
       - key: EXTRA_CHARGE_APPROVAL_LIMIT
         value: "200000"
 
+  # Quinto microservicio: escucha eventos (Redis Streams) y envía correos.
+  # Sin BREVO_API_KEY funciona en modo demostración (guarda los correos sin enviarlos).
+  - type: web
+    name: coworkspace-notification
+    runtime: image
+    image:
+      url: ghcr.io/yayr10/coworkspace-notification-service:latest
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - fromGroup: coworkspace-shared
+      - key: SERVICE_NAME
+        value: notification-service
+      - key: DB_SCHEMA
+        value: notification
+      - key: DATABASE_URL
+        fromDatabase: { name: coworkspace-db, property: connectionString }
+      - key: REDIS_URL
+        fromService: { type: keyvalue, name: coworkspace-redis, property: connectionString }
+      - key: MEMBERSHIP_SERVICE_URL
+        value: https://coworkspace-membership.onrender.com
+      - key: SPACE_SERVICE_URL
+        value: https://coworkspace-space.onrender.com
+      - key: APP_URL
+        value: https://coworkspace-web.onrender.com
+      - key: MAIL_FROM_NAME
+        value: CoworkSpace
+      - key: BREVO_API_KEY            # opcional: clave de API de Brevo (brevo.com)
+        sync: false
+      - key: MAIL_FROM                # opcional: correo remitente verificado en Brevo
+        sync: false
+
   - type: web
     name: coworkspace-gateway
     runtime: image
@@ -120,6 +152,8 @@ services:
         sync: false
       - key: BILLING_SERVICE_URL      # https://coworkspace-billing.onrender.com
         sync: false
+      - key: NOTIFICATION_SERVICE_URL
+        value: https://coworkspace-notification.onrender.com
       - key: CORS_ORIGIN              # URL del frontend en Vercel
         sync: false
 
@@ -132,5 +166,14 @@ services:
     staticPublishPath: dist
     envVars:
       - key: VITE_API_URL
-        value: https://coworkspace-gateway.onrender.com
+        value: /
+    # El sitio reenvía la API al gateway desde su propio dominio:
+    # los bloqueadores de anuncios no cortan las llamadas y no hace falta CORS.
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://coworkspace-gateway.onrender.com/api/*
+      - type: rewrite
+        source: /health/*
+        destination: https://coworkspace-gateway.onrender.com/health/*
 

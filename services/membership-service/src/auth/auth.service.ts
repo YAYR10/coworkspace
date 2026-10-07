@@ -20,7 +20,7 @@ export class AuthService {
     const exists = await this.prisma.member.findUnique({ where: { email } });
     if (exists) throw new ConflictException('El email ya está registrado');
     const member = await this.prisma.member.create({
-      data: { name: dto.name, email, passwordHash: await bcrypt.hash(dto.password, 10) },
+      data: { name: dto.name, email, country: dto.country, passwordHash: await bcrypt.hash(dto.password, 10) },
     });
     return this.issueTokens(member);
   }

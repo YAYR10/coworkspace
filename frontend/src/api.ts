@@ -1,16 +1,36 @@
 /** Cliente HTTP del API Gateway: añade el JWT, renueva el token vencido y traduce errores. */
-export const API_URL = (import.meta.env.VITE_API_URL || 'https://coworkspace-gateway.onrender.com').replace(/\/$/, '');
 
-export type Role = 'MEMBER' | 'ADMIN';
+/**
+ * Dónde está el API Gateway.
+ *  - VITE_API_URL="/" (producción en Render): mismo dominio. Render reenvía /api/* y /health/*
+ *    al gateway, así los bloqueadores de anuncios (Brave Shields) no cortan las llamadas y no hay CORS.
+ *  - VITE_API_URL="http://localhost:3000" (desarrollo): llamada directa al gateway.
+ */
+const configured = (import.meta.env.VITE_API_URL ?? '/').trim();
+export const API_URL = configured === '/' ? '' : configured.replace(/\/$/, '');
+
+export type Role = 'MEMBER' | 'COORDINATOR' | 'ADMIN';
+export const ROLE_LABEL: Record<Role, string> = { MEMBER: 'Miembro', COORDINATOR: 'Coordinador', ADMIN: 'Administrador' };
 export interface SessionMember { id: string; name: string; email: string; role: Role }
 export interface Session { accessToken: string; refreshToken: string; member: SessionMember }
 
 export interface Plan { id: string; code: string; name: string; price: number; resourceAccess: ResourceType[]; description?: string | null }
 export interface Subscription { id: string; planId: string; status: 'ACTIVE' | 'EXPIRED' | 'CANCELLED'; autoRenew: boolean; startedAt: string; renewsAt: string; plan: Plan }
-export interface Me { id: string; name: string; email: string; role: Role; createdAt: string; subscriptions: Subscription[] }
+export interface Me {
+  id: string; name: string; email: string; role: Role; createdAt: string;
+  phone?: string | null; country?: string | null; city?: string | null;
+  subscriptions: Subscription[];
+}
+export interface MemberRow extends Omit<Me, 'subscriptions'> { subscriptions: { plan: { name: string } }[] }
 
 export type ResourceType = 'ROOM' | 'DESK';
-export interface Location { id: string; name: string; city: string; address: string; _count?: { rooms: number; desks: number } }
+export interface Location {
+  id: string; name: string; country: string; city: string; address: string;
+  description?: string | null; services: string[]; isPublished: boolean;
+  photoUrl?: string | null; latitude?: number | null; longitude?: number | null;
+  _count?: { rooms: number; desks: number };
+}
+export interface CountryInfo { country: string; locations: number; cities: string[] }
 export interface Room { id: string; locationId: string; name: string; capacity: number; equipment: Record<string, boolean>; isActive: boolean }
 export interface Desk { id: string; locationId: string; code: string; isDedicated: boolean; isActive: boolean }
 
@@ -21,8 +41,13 @@ export interface Booking {
 }
 export interface BusySlot { startTime: string; endTime: string; status: BookingStatus }
 export interface WaitlistEntry { id: string; resourceId: string; resourceType: ResourceType; startTime: string; endTime: string; status: 'WAITING' | 'PROMOTED' | 'EXPIRED'; bookingId?: string | null; createdAt: string }
-export interface Invoice { id: string; period: string; amount: number; status: 'PAID' | 'FAILED'; electronicNumber?: string | null; failureReason?: string | null; createdAt: string }
-export interface Charge { id: string; bookingId: string; amount: number; reason: string; status: 'APPROVED' | 'REJECTED' | 'VOIDED'; failureReason?: string | null; createdAt: string }
+export interface Invoice { id: string; memberId: string; period: string; amount: number; status: 'PAID' | 'FAILED'; electronicNumber?: string | null; failureReason?: string | null; createdAt: string }
+export interface Charge { id: string; memberId: string; bookingId: string; amount: number; reason: string; status: 'APPROVED' | 'REJECTED' | 'VOIDED'; failureReason?: string | null; createdAt: string }
+export type NotificationStatus = 'SENT' | 'LOGGED' | 'FAILED';
+export interface AppNotification {
+  id: string; eventType: string; subject: string; body: string; status: NotificationStatus; createdAt: string;
+  email?: string; memberId?: string; error?: string | null;
+}
 export interface ServiceHealth { status: 'up' | 'down'; httpStatus?: number; latencyMs?: number; error?: string }
 export type HealthReport = Record<string, ServiceHealth>;
 
@@ -73,7 +98,7 @@ async function send(path: string, init: RequestInit, withAuth: boolean): Promise
 }
 
 let refreshing: Promise<boolean> | null = null;
-function refreshSession(): Promise<boolean> {
+export function refreshSession(): Promise<boolean> {
   if (!session) return Promise.resolve(false);
   refreshing ??= (async () => {
     try {
@@ -116,6 +141,8 @@ export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body: JSON.stringify(body ?? {}) }),
   patch: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PATCH', body: JSON.stringify(body ?? {}) }),
+  put: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PUT', body: JSON.stringify(body ?? {}) }),
+  del: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 };
 
 export async function login(email: string, password: string) {
@@ -123,8 +150,8 @@ export async function login(email: string, password: string) {
   setSession({ accessToken: data.accessToken, refreshToken: data.refreshToken, member: data.member });
 }
 
-export async function register(name: string, email: string, password: string) {
-  const data = await request<Session>('/api/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password }) });
+export async function register(name: string, email: string, password: string, country?: string) {
+  const data = await request<Session>('/api/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password, country }) });
   setSession({ accessToken: data.accessToken, refreshToken: data.refreshToken, member: data.member });
 }
 

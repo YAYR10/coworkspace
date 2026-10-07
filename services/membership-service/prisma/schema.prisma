@@ -7,8 +7,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// MEMBER: usuario normal · COORDINATOR: publica sedes y servicios · ADMIN: jefe, puede todo
 enum Role {
   MEMBER
+  COORDINATOR
   ADMIN
 }
 
@@ -24,6 +26,9 @@ model Member {
   email         String         @unique
   passwordHash  String         @map("password_hash")
   role          Role           @default(MEMBER)
+  phone         String?
+  country       String?
+  city          String?
   createdAt     DateTime       @default(now()) @map("created_at")
   subscriptions Subscription[]
   refreshTokens RefreshToken[]

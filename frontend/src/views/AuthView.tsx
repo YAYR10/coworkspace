@@ -1,13 +1,16 @@
 import { FormEvent, useState } from 'react';
-import { api, login, Plan, register } from '../api';
+import { api, Location, login, Plan, register } from '../api';
+import { PinIcon } from '../components/LocationPrompt';
 import { Brand } from '../components/ServiceStatus';
 import { Notice } from '../components/ui';
-import { money } from '../format';
+import { money, plural } from '../format';
 import { errorText, useLoad } from '../hooks';
+import { ALL, countryFilter, useCountry } from '../location';
 
 const ACCESS: Record<string, string> = { ROOM: 'salas de reunión', DESK: 'puestos de trabajo' };
 
-export function AuthView() {
+export function AuthView({ onChangeCountry }: { onChangeCountry: () => void }) {
+  const country = useCountry();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -15,6 +18,10 @@ export function AuthView() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const plans = useLoad(() => api.get<Plan[]>('/api/plans'));
+  const locations = useLoad(() => {
+    const c = countryFilter(country);
+    return api.get<Location[]>(`/api/locations${c ? `?country=${encodeURIComponent(c)}` : ''}`);
+  }, [country]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -22,7 +29,7 @@ export function AuthView() {
     setBusy(true);
     try {
       if (mode === 'login') await login(email.trim(), password);
-      else await register(name.trim(), email.trim(), password);
+      else await register(name.trim(), email.trim(), password, countryFilter(country));
     } catch (err) {
       setError(errorText(err));
     } finally {
@@ -39,6 +46,30 @@ export function AuthView() {
           Reserva salas de reunión y puestos de trabajo en cualquier sede. Mira la disponibilidad por horas y recibe la
           confirmación al instante.
         </p>
+
+        <div className="auth-block-head">
+          <h2 className="auth-plans-title">{country === ALL ? 'Nuestras sedes' : `Sedes en ${country}`}</h2>
+          <button className="link link-pin" onClick={onChangeCountry}>
+            <PinIcon /> Cambiar país
+          </button>
+        </div>
+        {locations.data && locations.data.length === 0 && <p className="hint">Aún no hay sedes publicadas aquí.</p>}
+        {locations.data && locations.data.length > 0 && (
+          <ul className="plan-lines">
+            {locations.data.slice(0, 5).map((l) => (
+              <li key={l.id}>
+                <span className="plan-line-name">{l.name}</span>
+                <span className="plan-line-access">
+                  {l.city}
+                  {country === ALL ? `, ${l.country}` : ''}
+                  {l.services.length > 0 && ` · ${l.services.slice(0, 3).join(', ')}`}
+                </span>
+                <span className="plan-line-price plan-line-small">{plural(l._count?.rooms ?? 0, 'sala', 'salas')}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+
         <h2 className="auth-plans-title">Planes mensuales</h2>
         {plans.data && (
           <ul className="plan-lines">

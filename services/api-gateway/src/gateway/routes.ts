@@ -11,6 +11,7 @@ export function serviceUrls(env: NodeJS.ProcessEnv = process.env) {
     space: normalizeUrl(env.SPACE_SERVICE_URL ?? 'http://localhost:3002'),
     booking: normalizeUrl(env.BOOKING_SERVICE_URL ?? 'http://localhost:3003'),
     billing: normalizeUrl(env.BILLING_SERVICE_URL ?? 'http://localhost:3004'),
+    notification: normalizeUrl(env.NOTIFICATION_SERVICE_URL ?? 'http://localhost:3005'),
   };
 }
 
@@ -28,6 +29,7 @@ export function buildRoutes(env: NodeJS.ProcessEnv = process.env): RouteDefiniti
     { prefix: '/api/bookings', target: s.booking },
     { prefix: '/api/invoices', target: s.billing },
     { prefix: '/api/charges', target: s.billing },
+    { prefix: '/api/notifications', target: s.notification },
   ];
 }
 
@@ -39,4 +41,4 @@ export const PUBLIC_ROUTES: { method: string; pattern: RegExp }[] = [
 ];
 
 /** Endpoints internos entre servicios que nunca se exponen hacia afuera. */
-export const INTERNAL_ONLY: RegExp[] = [/^\/api\/subscriptions\/member\//];
+export const INTERNAL_ONLY: RegExp[] = [/^\/api\/subscriptions\/member\//, /^\/api\/members\/[^/]+\/contact\/?$/];

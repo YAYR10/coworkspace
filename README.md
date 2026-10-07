@@ -1,6 +1,6 @@
 # CoworkSpace – Plataforma de gestión de espacios de coworking
 
-Implementación de 4 microservicios + API Gateway según el documento del proyecto.
+Implementación de los 4 microservicios del documento del proyecto, un quinto servicio de notificaciones, el API Gateway y una aplicación web.
 
 | Servicio | Puerto local | Responsabilidad | Schema BD |
 |---|---|---|---|
@@ -9,8 +9,10 @@ Implementación de 4 microservicios + API Gateway según el documento del proyec
 | **space-service** | 3002 | Sedes, salas, puestos, equipamiento (con caché Redis) | `space` |
 | **booking-service** | 3003 | Reservas en tiempo real con **bloqueo optimista**, lista de espera, saga | `booking` |
 | **billing-service** | 3004 | Cobro recurrente, cargos adicionales, factura electrónica (simulada), saga | `billing` |
+| **notification-service** | 3005 | Correos por eventos (reserva confirmada/cancelada, plan activo/vencido) vía Redis Streams | `notification` |
+| **frontend** | 5173 | Aplicación web (React): paneles de administrador, coordinador y miembro | – |
 
-**Stack:** NestJS · Prisma · PostgreSQL · Redis (Pub/Sub + caché) · Docker · GitHub Actions · GHCR · Render · k6 · Prometheus/Grafana.
+**Stack:** NestJS · React · Prisma · PostgreSQL · Redis (Pub/Sub, Streams y caché) · Leaflet/OpenStreetMap · Brevo · Docker · GitHub Actions · GHCR · Render · k6 · Prometheus/Grafana.
 
 ## Arquitectura
 
@@ -27,7 +29,19 @@ flowchart LR
   BL -. billing.charge.approved / rejected .-> R
   R -.-> BL
   R -.-> BS
+  R -. Redis Stream coworkspace:events .-> NS[Notification]
+  NS -- REST: contacto del miembro --> MS
+  NS -- REST: nombre del espacio --> SS
+  NS -- HTTPS --> Brevo[(Brevo: correo)]
 ```
+
+### Notification Service (correos)
+- Cada evento de dominio se publica en Pub/Sub **y** se copia en el Redis Stream `coworkspace:events`.
+- El Notification Service lee el stream con un **grupo de consumidores** (`XREADGROUP` + `XACK`): si estaba dormido (plan free de Render), procesa los eventos pendientes al despertar, cosa que Pub/Sub no permite.
+- Es **idempotente**: guarda el `id` de cada evento y nunca envía dos veces el mismo correo.
+- Envía por la API HTTP de **Brevo** (gratis, 300 correos/día). Render free bloquea los puertos SMTP, por eso no se usa SMTP.
+- **Modo demostración:** sin `BREVO_API_KEY`, los correos se generan y se guardan (se ven en *Administración → Correos* y en *Notificaciones* de cada usuario) pero no se envían.
+- Para activar el envío real: crea una cuenta en brevo.com, verifica un remitente (*Senders*), crea una clave en *SMTP & API → API Keys* y en Render, en `coworkspace-notification` → *Environment*, define `BREVO_API_KEY` y `MAIL_FROM` (el remitente verificado).
 
 ### Comunicación entre servicios
 - **Síncrona (REST):** Booking consulta a Space (`GET /resources/:type/:id`, cacheado en Redis) antes de reservar.
@@ -114,24 +128,38 @@ curl -s $API/charges/me -H "Authorization: Bearer $TOKEN"
 curl -s $API/invoices/me -H "Authorization: Bearer $TOKEN"
 ```
 
+## Roles y vistas
+
+| Rol | Vista en la web | Qué puede hacer |
+|---|---|---|
+| **Administrador** (jefe) | Panel de administración | Todo: resumen del negocio, usuarios y roles, planes y precios, facturación de todos, más todo lo del coordinador y del miembro |
+| **Coordinador** | Panel de coordinación | Crear, editar, publicar u ocultar sedes con sus servicios; crear salas y puestos; ver la ocupación y cancelar reservas. No gestiona usuarios, planes ni facturación |
+| **Miembro** | Panel de miembro | Elegir país (con la ubicación del navegador), ver sedes de ese país, reservar, ver sus reservas, membresía, pagos y su perfil |
+
+El primer administrador se crea con `ADMIN_EMAIL` / `ADMIN_PASSWORD`. Después, el administrador asigna roles desde **Usuarios y roles** (no puede cambiar su propio rol y siempre queda al menos un administrador). Los permisos se validan en cada microservicio, no solo en la interfaz.
+
 ## Endpoints (a través del Gateway, prefijo `/api`)
 
 | Método | Ruta | Auth |
 |---|---|---|
 | POST | `/auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout` | pública |
-| GET | `/members/me` | miembro |
-| GET / POST | `/plans` | pública / admin |
+| GET / PATCH | `/members/me` (perfil: nombre, teléfono, país, ciudad) | miembro |
+| POST | `/members/me/password` | miembro |
+| GET · PATCH | `/members?q=&role=` · `/members/:id/role` | admin |
+| GET · POST / PATCH | `/plans` · `/plans`, `/plans/:id` | pública · admin |
 | POST | `/subscriptions` · GET `/subscriptions/me` | miembro |
 | POST | `/subscriptions/:id/cancel` (desactiva renovación) | miembro |
 | POST | `/subscriptions/:id/expire`, `/subscriptions/renewals/run` | admin |
-| GET / POST | `/locations`, `/locations/:id` | pública / admin |
-| GET / POST / PATCH | `/rooms?locationId=&minCapacity=&equipment=projector`, `/rooms/:id` | pública / admin |
-| GET / POST / PATCH | `/desks?locationId=`, `/desks/:id` | pública / admin |
+| GET | `/locations?country=&city=`, `/locations/countries`, `/locations/:id` | pública (`?all=true` incluye ocultas para coordinador/admin) |
+| POST / PATCH | `/locations`, `/locations/:id` (servicios, publicar/ocultar) | coordinador / admin |
+| GET · POST / PATCH | `/rooms?country=&locationId=&minCapacity=&equipment=projector` · `/rooms`, `/rooms/:id` | pública · coordinador / admin |
+| GET · POST / PATCH | `/desks?country=&locationId=` · `/desks`, `/desks/:id` | pública · coordinador / admin |
 | POST | `/bookings` · GET `/bookings/me` · GET `/bookings/:id` | miembro |
+| GET | `/bookings?from=&to=&locationId=&status=` (ocupación) | coordinador / admin |
 | GET | `/bookings/availability?resourceId=&from=&to=` | miembro |
-| PATCH | `/bookings/:id/cancel` | miembro |
+| PATCH | `/bookings/:id/cancel` | dueño · coordinador / admin |
 | POST / GET | `/bookings/waitlist`, `/bookings/waitlist/me` | miembro |
-| GET | `/invoices/me`, `/charges/me` · GET `/invoices` | miembro · admin |
+| GET | `/invoices/me`, `/charges/me` · `/invoices`, `/charges` | miembro · admin |
 
 Cada servicio expone además `GET /health` y `GET /metrics` (Prometheus).
 

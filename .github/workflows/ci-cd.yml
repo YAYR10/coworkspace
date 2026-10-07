@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [api-gateway, membership-service, space-service, booking-service, billing-service]
+        service: [api-gateway, membership-service, space-service, booking-service, billing-service, notification-service]
     defaults:
       run:
         working-directory: services/${{ matrix.service }}
@@ -79,7 +79,7 @@ jobs:
       packages: write
     strategy:
       matrix:
-        service: [api-gateway, membership-service, space-service, booking-service, billing-service]
+        service: [api-gateway, membership-service, space-service, booking-service, billing-service, notification-service]
     steps:
       - uses: actions/checkout@v4
       - name: Nombre de imagen en minúsculas
@@ -106,6 +106,7 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         include:
           - service: membership-service
@@ -116,6 +117,8 @@ jobs:
             hook: RENDER_DEPLOY_HOOK_BOOKING
           - service: billing-service
             hook: RENDER_DEPLOY_HOOK_BILLING
+          - service: notification-service
+            hook: RENDER_DEPLOY_HOOK_NOTIFICATION
           - service: api-gateway
             hook: RENDER_DEPLOY_HOOK_GATEWAY
     steps:

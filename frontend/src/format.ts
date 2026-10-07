@@ -34,6 +34,34 @@ export const EQUIPMENT: Record<string, string> = {
 export const CANCEL_REASONS: Record<string, string> = {
   PAYMENT_REJECTED: 'El cobro fue rechazado',
   CANCELLED_BY_MEMBER: 'La cancelaste tú',
+  CANCELLED_BY_STAFF: 'La canceló el equipo de la sede',
   SAGA_TIMEOUT: 'Facturación no respondió a tiempo',
 };
 export const cancelReason = (r?: string | null) => (r ? CANCEL_REASONS[r] ?? r.replace(/_/g, ' ').toLowerCase() : 'Cancelada');
+
+/** Catálogo sugerido de servicios para las sedes (el coordinador puede agregar otros). */
+export const SERVICE_CATALOG = [
+  'WiFi de alta velocidad',
+  'Café y agua',
+  'Recepción',
+  'Parqueadero',
+  'Lockers',
+  'Impresión',
+  'Cabinas telefónicas',
+  'Zona de descanso',
+  'Acceso 24/7',
+  'Aire acondicionado',
+  'Cocina',
+  'Admite mascotas',
+];
+
+export const initials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]!.toUpperCase())
+    .join('');
+
+/** "1 sede" / "3 sedes" */
+export const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;

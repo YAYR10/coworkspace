@@ -1,88 +1,161 @@
 import { useCallback, useEffect, useState } from 'react';
-import { logout } from './api';
+import { api, logout, Me, refreshSession, Role, ROLE_LABEL } from './api';
+import { LocationPrompt, PinIcon } from './components/LocationPrompt';
 import { Brand, StatusChip, WakeUp } from './components/ServiceStatus';
+import { initials } from './format';
 import { useSession } from './hooks';
-import { AdminView } from './views/AdminView';
+import { ALL, useCountry } from './location';
 import { AuthView } from './views/AuthView';
 import { BillingView } from './views/BillingView';
 import { BookView } from './views/BookView';
 import { BookingsView } from './views/BookingsView';
 import { MembershipView } from './views/MembershipView';
+import { ProfileView } from './views/ProfileView';
+import { FinanceView } from './views/admin/FinanceView';
+import { MailView } from './views/admin/MailView';
+import { NotificationsView } from './views/NotificationsView';
+import { OverviewView } from './views/admin/OverviewView';
+import { PlansView } from './views/admin/PlansView';
+import { UsersView } from './views/admin/UsersView';
+import { LocationsView } from './views/staff/LocationsView';
+import { OccupancyView } from './views/staff/OccupancyView';
 
-const TABS = [
-  { id: 'reservar', label: 'Reservar' },
-  { id: 'reservas', label: 'Mis reservas' },
-  { id: 'membresia', label: 'Membresía' },
-  { id: 'pagos', label: 'Pagos' },
-  { id: 'admin', label: 'Administrar', admin: true },
-] as const;
-type TabId = (typeof TABS)[number]['id'];
+/**
+ * Tres vistas según el rol:
+ *  - Miembro: "Mi espacio" (reservar, reservas, membresía, pagos, perfil).
+ *  - Coordinador: además "Coordinación" (publicar sedes y servicios, ver ocupación).
+ *  - Administrador (jefe): además "Administración" (resumen, usuarios y roles, planes, facturación, correos).
+ */
+type Group = 'admin' | 'coord' | 'mine';
+interface Section { id: string; label: string; group: Group }
 
-const readHash = (): TabId => {
-  const h = window.location.hash.slice(1);
-  return (TABS.some((t) => t.id === h) ? h : 'reservar') as TabId;
-};
+const SECTIONS: Section[] = [
+  { id: 'resumen', label: 'Resumen', group: 'admin' },
+  { id: 'usuarios', label: 'Usuarios y roles', group: 'admin' },
+  { id: 'planes', label: 'Planes', group: 'admin' },
+  { id: 'facturacion', label: 'Facturación', group: 'admin' },
+  { id: 'correos', label: 'Correos', group: 'admin' },
+  { id: 'sedes', label: 'Sedes y servicios', group: 'coord' },
+  { id: 'ocupacion', label: 'Ocupación', group: 'coord' },
+  { id: 'reservar', label: 'Reservar', group: 'mine' },
+  { id: 'reservas', label: 'Mis reservas', group: 'mine' },
+  { id: 'membresia', label: 'Membresía', group: 'mine' },
+  { id: 'pagos', label: 'Mis pagos', group: 'mine' },
+  { id: 'avisos', label: 'Notificaciones', group: 'mine' },
+  { id: 'perfil', label: 'Mi perfil', group: 'mine' },
+];
+const GROUP_LABEL: Record<Group, string> = { admin: 'Administración', coord: 'Coordinación', mine: 'Mi espacio' };
+const GROUPS_BY_ROLE: Record<Role, Group[]> = { ADMIN: ['admin', 'coord', 'mine'], COORDINATOR: ['coord', 'mine'], MEMBER: ['mine'] };
+const HOME: Record<Role, string> = { ADMIN: 'resumen', COORDINATOR: 'sedes', MEMBER: 'reservar' };
+const PANEL: Record<Role, string> = { ADMIN: 'Panel de administración', COORDINATOR: 'Panel de coordinación', MEMBER: 'Panel de miembro' };
+
+const readHash = () => window.location.hash.slice(1);
 
 export default function App() {
   const session = useSession();
+  const country = useCountry();
   const [ready, setReady] = useState(false);
-  const [tab, setTab] = useState<TabId>(readHash);
+  const [askCountry, setAskCountry] = useState(false);
+  const [hash, setHash] = useState(readHash);
   const markReady = useCallback(() => setReady(true), []);
 
   useEffect(() => {
-    const onHash = () => setTab(readHash());
+    const onHash = () => setHash(readHash());
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
-  if (!ready) return <WakeUp onReady={markReady} />;
-  if (!session) return <AuthView />;
+  // Si un administrador cambió el rol de este usuario, se renueva el token para que el cambio aplique ya.
+  useEffect(() => {
+    if (!ready || !session) return;
+    api
+      .get<Me>('/api/members/me')
+      .then((me) => {
+        if (me.role !== session.member.role) void refreshSession();
+      })
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, session?.member.id]);
 
-  const isAdmin = session.member.role === 'ADMIN';
-  const current = tab === 'admin' && !isAdmin ? 'reservar' : tab;
-  const go = (id: TabId) => {
+  if (!ready) return <WakeUp onReady={markReady} />;
+  if (!country || askCountry) return <LocationPrompt current={country} onDone={() => setAskCountry(false)} />;
+  if (!session) return <AuthView onChangeCountry={() => setAskCountry(true)} />;
+
+  const role = session.member.role;
+  const allowed = SECTIONS.filter((s) => GROUPS_BY_ROLE[role].includes(s.group));
+  const current = allowed.find((s) => s.id === hash)?.id ?? HOME[role];
+  const go = (id: string) => {
     window.location.hash = id;
-    setTab(id);
+    setHash(id);
+    window.scrollTo({ top: 0 });
   };
 
   return (
-    <div className="shell">
+    <div className={`shell shell-${role.toLowerCase()}`}>
       <header className="topbar">
-        <Brand />
-        <nav className="tabs" aria-label="Secciones">
-          {TABS.filter((t) => !('admin' in t) || isAdmin).map((t) => (
-            <a
-              key={t.id}
-              href={`#${t.id}`}
-              className="tab"
-              aria-current={current === t.id ? 'page' : undefined}
-              onClick={(e) => {
-                e.preventDefault();
-                go(t.id);
-              }}
-            >
-              {t.label}
-            </a>
-          ))}
-        </nav>
+        <div className="topbar-start">
+          <Brand />
+          {role !== 'MEMBER' && <span className="panel-name">{PANEL[role]}</span>}
+        </div>
         <div className="topbar-end">
+          <button className="country-btn" onClick={() => setAskCountry(true)} title="Cambiar país">
+            <PinIcon />
+            <span>{country === ALL ? 'Todos los países' : country}</span>
+          </button>
           <StatusChip />
-          <span className="who">
-            {session.member.name}
-            {isAdmin && <span className="role">Admin</span>}
-          </span>
+          <button className="me-btn" onClick={() => go('perfil')} title="Mi perfil">
+            <span className="avatar" aria-hidden="true">{initials(session.member.name)}</span>
+            <span className="me-name">{session.member.name}</span>
+            {role !== 'MEMBER' && <span className={`role role-${role.toLowerCase()}`}>{ROLE_LABEL[role]}</span>}
+          </button>
           <button className="btn btn-quiet" onClick={() => void logout()}>
             Salir
           </button>
         </div>
       </header>
-      <main className="page">
-        {current === 'reservar' && <BookView onGoTo={go} />}
-        {current === 'reservas' && <BookingsView onGoTo={go} />}
-        {current === 'membresia' && <MembershipView />}
-        {current === 'pagos' && <BillingView />}
-        {current === 'admin' && <AdminView />}
-      </main>
+
+      <div className="layout">
+        <nav className="sidebar" aria-label="Secciones">
+          {GROUPS_BY_ROLE[role].map((g) => (
+            <div key={g} className="nav-group">
+              {GROUPS_BY_ROLE[role].length > 1 && <p className="nav-title">{GROUP_LABEL[g]}</p>}
+              {allowed
+                .filter((s) => s.group === g)
+                .map((s) => (
+                  <a
+                    key={s.id}
+                    href={`#${s.id}`}
+                    className="nav-link"
+                    aria-current={current === s.id ? 'page' : undefined}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      go(s.id);
+                    }}
+                  >
+                    {s.label}
+                  </a>
+                ))}
+            </div>
+          ))}
+        </nav>
+
+        <main className="page">
+          {current === 'resumen' && <OverviewView onGoTo={go} />}
+          {current === 'usuarios' && <UsersView me={session.member.id} />}
+          {current === 'planes' && <PlansView />}
+          {current === 'facturacion' && <FinanceView />}
+          {current === 'correos' && <MailView />}
+          {current === 'sedes' && <LocationsView isAdmin={role === 'ADMIN'} />}
+          {current === 'ocupacion' && <OccupancyView isAdmin={role === 'ADMIN'} />}
+          {current === 'reservar' && <BookView onGoTo={go} />}
+          {current === 'reservas' && <BookingsView onGoTo={go} />}
+          {current === 'membresia' && <MembershipView />}
+          {current === 'pagos' && <BillingView />}
+          {current === 'avisos' && <NotificationsView />}
+          {current === 'perfil' && <ProfileView />}
+        </main>
+      </div>
     </div>
   );
 }
+
