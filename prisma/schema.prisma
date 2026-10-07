@@ -8,14 +8,21 @@ datasource db {
 }
 
 model Location {
-  id        String   @id @default(uuid())
-  name      String
-  city      String
-  address   String
-  createdAt DateTime @default(now()) @map("created_at")
-  rooms     Room[]
-  desks     Desk[]
+  id          String   @id @default(uuid())
+  name        String
+  country     String   @default("Colombia")
+  city        String
+  address     String
+  description String?
+  /// Servicios de la sede publicados por el coordinador: WiFi, café, parqueadero...
+  services    String[] @default([])
+  /// Una sede sin publicar solo la ven coordinadores y administradores
+  isPublished Boolean  @default(true) @map("is_published")
+  createdAt   DateTime @default(now()) @map("created_at")
+  rooms       Room[]
+  desks       Desk[]
 
+  @@index([country, city])
   @@index([city])
   @@map("locations")
 }

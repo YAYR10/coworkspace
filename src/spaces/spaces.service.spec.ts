@@ -30,4 +30,31 @@ describe('SpacesService.getResource', () => {
     prisma.desk.findUnique.mockResolvedValue(null);
     await expect(service.getResource('DESK', 'd-x')).rejects.toBeInstanceOf(NotFoundException);
   });
+
+  it('una sala de una sede sin publicar no se puede reservar', async () => {
+    prisma.room.findUnique.mockResolvedValue({ id: 'r-2', locationId: 'l-2', name: 'Sala B', capacity: 4, isActive: true, equipment: {}, location: { isPublished: false } });
+    const result = await service.getResource('ROOM', 'r-2');
+    expect(result.isActive).toBe(false);
+  });
+});
+
+describe('SpacesService.findCountries', () => {
+  it('agrupa las sedes publicadas por país con sus ciudades', async () => {
+    const prisma: any = {
+      location: {
+        findMany: jest.fn().mockResolvedValue([
+          { country: 'Colombia', city: 'Montería' },
+          { country: 'Colombia', city: 'Bogotá' },
+          { country: 'México', city: 'CDMX' },
+        ]),
+      },
+    };
+    const service = new SpacesService(prisma, {} as any);
+    const result = await service.findCountries();
+    expect(prisma.location.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { isPublished: true } }));
+    expect(result).toEqual([
+      { country: 'Colombia', locations: 2, cities: ['Bogotá', 'Montería'] },
+      { country: 'México', locations: 1, cities: ['CDMX'] },
+    ]);
+  });
 });
