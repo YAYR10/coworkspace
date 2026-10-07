@@ -12,6 +12,8 @@ import { BookingsView } from './views/BookingsView';
 import { MembershipView } from './views/MembershipView';
 import { ProfileView } from './views/ProfileView';
 import { FinanceView } from './views/admin/FinanceView';
+import { MailView } from './views/admin/MailView';
+import { NotificationsView } from './views/NotificationsView';
 import { OverviewView } from './views/admin/OverviewView';
 import { PlansView } from './views/admin/PlansView';
 import { UsersView } from './views/admin/UsersView';
@@ -22,7 +24,7 @@ import { OccupancyView } from './views/staff/OccupancyView';
  * Tres vistas según el rol:
  *  - Miembro: "Mi espacio" (reservar, reservas, membresía, pagos, perfil).
  *  - Coordinador: además "Coordinación" (publicar sedes y servicios, ver ocupación).
- *  - Administrador (jefe): además "Administración" (resumen, usuarios y roles, planes, facturación).
+ *  - Administrador (jefe): además "Administración" (resumen, usuarios y roles, planes, facturación, correos).
  */
 type Group = 'admin' | 'coord' | 'mine';
 interface Section { id: string; label: string; group: Group }
@@ -32,12 +34,14 @@ const SECTIONS: Section[] = [
   { id: 'usuarios', label: 'Usuarios y roles', group: 'admin' },
   { id: 'planes', label: 'Planes', group: 'admin' },
   { id: 'facturacion', label: 'Facturación', group: 'admin' },
+  { id: 'correos', label: 'Correos', group: 'admin' },
   { id: 'sedes', label: 'Sedes y servicios', group: 'coord' },
   { id: 'ocupacion', label: 'Ocupación', group: 'coord' },
   { id: 'reservar', label: 'Reservar', group: 'mine' },
   { id: 'reservas', label: 'Mis reservas', group: 'mine' },
   { id: 'membresia', label: 'Membresía', group: 'mine' },
   { id: 'pagos', label: 'Mis pagos', group: 'mine' },
+  { id: 'avisos', label: 'Notificaciones', group: 'mine' },
   { id: 'perfil', label: 'Mi perfil', group: 'mine' },
 ];
 const GROUP_LABEL: Record<Group, string> = { admin: 'Administración', coord: 'Coordinación', mine: 'Mi espacio' };
@@ -140,12 +144,14 @@ export default function App() {
           {current === 'usuarios' && <UsersView me={session.member.id} />}
           {current === 'planes' && <PlansView />}
           {current === 'facturacion' && <FinanceView />}
+          {current === 'correos' && <MailView />}
           {current === 'sedes' && <LocationsView isAdmin={role === 'ADMIN'} />}
           {current === 'ocupacion' && <OccupancyView isAdmin={role === 'ADMIN'} />}
           {current === 'reservar' && <BookView onGoTo={go} />}
           {current === 'reservas' && <BookingsView onGoTo={go} />}
           {current === 'membresia' && <MembershipView />}
           {current === 'pagos' && <BillingView />}
+          {current === 'avisos' && <NotificationsView />}
           {current === 'perfil' && <ProfileView />}
         </main>
       </div>

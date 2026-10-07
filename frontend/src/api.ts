@@ -43,6 +43,11 @@ export interface BusySlot { startTime: string; endTime: string; status: BookingS
 export interface WaitlistEntry { id: string; resourceId: string; resourceType: ResourceType; startTime: string; endTime: string; status: 'WAITING' | 'PROMOTED' | 'EXPIRED'; bookingId?: string | null; createdAt: string }
 export interface Invoice { id: string; memberId: string; period: string; amount: number; status: 'PAID' | 'FAILED'; electronicNumber?: string | null; failureReason?: string | null; createdAt: string }
 export interface Charge { id: string; memberId: string; bookingId: string; amount: number; reason: string; status: 'APPROVED' | 'REJECTED' | 'VOIDED'; failureReason?: string | null; createdAt: string }
+export type NotificationStatus = 'SENT' | 'LOGGED' | 'FAILED';
+export interface AppNotification {
+  id: string; eventType: string; subject: string; body: string; status: NotificationStatus; createdAt: string;
+  email?: string; memberId?: string; error?: string | null;
+}
 export interface ServiceHealth { status: 'up' | 'down'; httpStatus?: number; latencyMs?: number; error?: string }
 export type HealthReport = Record<string, ServiceHealth>;
 

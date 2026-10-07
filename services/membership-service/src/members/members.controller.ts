@@ -24,6 +24,12 @@ export class MembersController {
     return this.members.changePassword(user.id, dto);
   }
 
+  // ---------- Interno: lo usa Notification Service (el Gateway lo bloquea hacia afuera) ----------
+  @Get(':id/contact')
+  contact(@Param('id', ParseUUIDPipe) id: string) {
+    return this.members.contact(id);
+  }
+
   // ---------- Gestión de usuarios (solo ADMIN) ----------
   @Get()
   list(@CurrentUser() user: AuthUser, @Query('q') q?: string, @Query('role') role?: string) {

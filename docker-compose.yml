@@ -74,6 +74,21 @@ services:
       EXTRA_CHARGE_APPROVAL_LIMIT: 200000
     depends_on: *depends
 
+  notification-service:
+    build: ./services/notification-service
+    environment:
+      <<: *common-env
+      PORT: 3005
+      SERVICE_NAME: notification-service
+      DB_SCHEMA: notification
+      MEMBERSHIP_SERVICE_URL: http://membership-service:3001
+      SPACE_SERVICE_URL: http://space-service:3002
+      # Opcional: sin estas variables los correos se guardan sin enviarse (modo demostración)
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      APP_URL: http://localhost:5173
+    depends_on: *depends
+
   api-gateway:
     build: ./services/api-gateway
     ports: ["3000:3000"]
@@ -86,7 +101,8 @@ services:
       SPACE_SERVICE_URL: http://space-service:3002
       BOOKING_SERVICE_URL: http://booking-service:3003
       BILLING_SERVICE_URL: http://billing-service:3004
-    depends_on: [membership-service, space-service, booking-service, billing-service]
+      NOTIFICATION_SERVICE_URL: http://notification-service:3005
+    depends_on: [membership-service, space-service, booking-service, billing-service, notification-service]
 
   prometheus:
     image: prom/prometheus:v2.54.1
