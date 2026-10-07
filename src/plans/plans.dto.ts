@@ -20,3 +20,24 @@ export class CreatePlanDto {
   @IsString()
   description?: string;
 }
+
+export class UpdatePlanDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  price?: number;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsIn(['DESK', 'ROOM'], { each: true })
+  resourceAccess?: string[];
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+}

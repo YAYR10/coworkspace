@@ -1,7 +1,7 @@
-import { ConflictException, Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreatePlanDto } from './plans.dto';
+import { CreatePlanDto, UpdatePlanDto } from './plans.dto';
 
 /** Planes del PDF: puesto flexible, escritorio dedicado, oficina privada, solo salas. Precios en COP. */
 const DEFAULT_PLANS = [
@@ -44,5 +44,10 @@ export class PlansService implements OnModuleInit {
       throw new ConflictException('Ya existe un plan con ese código');
     }
     return this.prisma.membershipPlan.create({ data: dto });
+  }
+
+  async update(id: string, dto: UpdatePlanDto) {
+    if (!(await this.prisma.membershipPlan.findUnique({ where: { id } }))) throw new NotFoundException('Plan no encontrado');
+    return this.prisma.membershipPlan.update({ where: { id }, data: dto });
   }
 }
