@@ -1,0 +1,32 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// SENT: entregado al proveedor de correo · LOGGED: modo demostración (sin proveedor configurado) · FAILED: el proveedor lo rechazó
+enum NotificationStatus {
+  SENT
+  LOGGED
+  FAILED
+}
+
+model Notification {
+  id        String             @id @default(uuid())
+  /// id del evento de dominio que lo originó: evita enviar dos veces el mismo correo
+  eventId   String             @unique @map("event_id")
+  eventType String             @map("event_type")
+  memberId  String             @map("member_id")
+  email     String
+  subject   String
+  body      String
+  status    NotificationStatus
+  error     String?
+  createdAt DateTime           @default(now()) @map("created_at")
+
+  @@index([memberId, createdAt])
+  @@map("notifications")
+}
