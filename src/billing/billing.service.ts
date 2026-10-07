@@ -151,6 +151,10 @@ export class BillingService implements OnModuleInit {
     return this.prisma.extraCharge.findMany({ where: { memberId }, orderBy: { createdAt: 'desc' } });
   }
 
+  allCharges(memberId?: string) {
+    return this.prisma.extraCharge.findMany({ where: { memberId }, orderBy: { createdAt: 'desc' }, take: 200 });
+  }
+
   /** Número de factura electrónica simulado (en producción lo asigna el proveedor tecnológico ante la DIAN). */
   private electronicInvoiceNumber(): string {
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
