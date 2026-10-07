@@ -132,5 +132,14 @@ services:
     staticPublishPath: dist
     envVars:
       - key: VITE_API_URL
-        value: https://coworkspace-gateway.onrender.com
+        value: /
+    # El sitio reenvía la API al gateway desde su propio dominio:
+    # los bloqueadores de anuncios no cortan las llamadas y no hace falta CORS.
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://coworkspace-gateway.onrender.com/api/*
+      - type: rewrite
+        source: /health/*
+        destination: https://coworkspace-gateway.onrender.com/health/*
 

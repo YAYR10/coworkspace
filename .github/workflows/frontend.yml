@@ -27,4 +27,4 @@ jobs:
       - run: npm ci
       - run: npm run build
         env:
-          VITE_API_URL: https://coworkspace-gateway.onrender.com
+          VITE_API_URL: /

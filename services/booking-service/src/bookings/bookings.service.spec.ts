@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
 
 const BASE = Date.now();
@@ -82,5 +82,26 @@ describe('BookingsService', () => {
     prisma.booking.updateMany.mockResolvedValue({ count: 0 });
     await service.onChargeApproved({ bookingId: 'b-1', amount: 0 });
     expect(events.publish).not.toHaveBeenCalled();
+  });
+
+  describe('permisos por rol', () => {
+    beforeEach(() => {
+      prisma.booking.findUnique = jest.fn().mockResolvedValue(bookingRow({ memberId: 'm-1', status: 'CONFIRMED' }));
+    });
+
+    it('un miembro no puede ver la reserva de otro', async () => {
+      await expect(service.findOne({ id: 'm-2', role: 'MEMBER' }, 'b-1')).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('un coordinador puede ver cualquier reserva', async () => {
+      await expect(service.findOne({ id: 'c-1', role: 'COORDINATOR' }, 'b-1')).resolves.toMatchObject({ id: 'b-1' });
+    });
+
+    it('si el personal cancela la reserva de otro, queda registrado como CANCELLED_BY_STAFF', async () => {
+      prisma.booking.updateMany.mockResolvedValue({ count: 1 });
+      prisma.booking.findUniqueOrThrow.mockResolvedValue(bookingRow({ status: 'CANCELLED', cancelReason: 'CANCELLED_BY_STAFF' }));
+      await service.cancel({ id: 'admin-1', role: 'ADMIN' }, 'b-1');
+      expect(prisma.booking.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { status: 'CANCELLED', cancelReason: 'CANCELLED_BY_STAFF' } }));
+    });
   });
 });

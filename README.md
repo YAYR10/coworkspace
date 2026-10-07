@@ -114,24 +114,38 @@ curl -s $API/charges/me -H "Authorization: Bearer $TOKEN"
 curl -s $API/invoices/me -H "Authorization: Bearer $TOKEN"
 ```
 
+## Roles y vistas
+
+| Rol | Vista en la web | Qué puede hacer |
+|---|---|---|
+| **Administrador** (jefe) | Panel de administración | Todo: resumen del negocio, usuarios y roles, planes y precios, facturación de todos, más todo lo del coordinador y del miembro |
+| **Coordinador** | Panel de coordinación | Crear, editar, publicar u ocultar sedes con sus servicios; crear salas y puestos; ver la ocupación y cancelar reservas. No gestiona usuarios, planes ni facturación |
+| **Miembro** | Panel de miembro | Elegir país (con la ubicación del navegador), ver sedes de ese país, reservar, ver sus reservas, membresía, pagos y su perfil |
+
+El primer administrador se crea con `ADMIN_EMAIL` / `ADMIN_PASSWORD`. Después, el administrador asigna roles desde **Usuarios y roles** (no puede cambiar su propio rol y siempre queda al menos un administrador). Los permisos se validan en cada microservicio, no solo en la interfaz.
+
 ## Endpoints (a través del Gateway, prefijo `/api`)
 
 | Método | Ruta | Auth |
 |---|---|---|
 | POST | `/auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout` | pública |
-| GET | `/members/me` | miembro |
-| GET / POST | `/plans` | pública / admin |
+| GET / PATCH | `/members/me` (perfil: nombre, teléfono, país, ciudad) | miembro |
+| POST | `/members/me/password` | miembro |
+| GET · PATCH | `/members?q=&role=` · `/members/:id/role` | admin |
+| GET · POST / PATCH | `/plans` · `/plans`, `/plans/:id` | pública · admin |
 | POST | `/subscriptions` · GET `/subscriptions/me` | miembro |
 | POST | `/subscriptions/:id/cancel` (desactiva renovación) | miembro |
 | POST | `/subscriptions/:id/expire`, `/subscriptions/renewals/run` | admin |
-| GET / POST | `/locations`, `/locations/:id` | pública / admin |
-| GET / POST / PATCH | `/rooms?locationId=&minCapacity=&equipment=projector`, `/rooms/:id` | pública / admin |
-| GET / POST / PATCH | `/desks?locationId=`, `/desks/:id` | pública / admin |
+| GET | `/locations?country=&city=`, `/locations/countries`, `/locations/:id` | pública (`?all=true` incluye ocultas para coordinador/admin) |
+| POST / PATCH | `/locations`, `/locations/:id` (servicios, publicar/ocultar) | coordinador / admin |
+| GET · POST / PATCH | `/rooms?country=&locationId=&minCapacity=&equipment=projector` · `/rooms`, `/rooms/:id` | pública · coordinador / admin |
+| GET · POST / PATCH | `/desks?country=&locationId=` · `/desks`, `/desks/:id` | pública · coordinador / admin |
 | POST | `/bookings` · GET `/bookings/me` · GET `/bookings/:id` | miembro |
+| GET | `/bookings?from=&to=&locationId=&status=` (ocupación) | coordinador / admin |
 | GET | `/bookings/availability?resourceId=&from=&to=` | miembro |
-| PATCH | `/bookings/:id/cancel` | miembro |
+| PATCH | `/bookings/:id/cancel` | dueño · coordinador / admin |
 | POST / GET | `/bookings/waitlist`, `/bookings/waitlist/me` | miembro |
-| GET | `/invoices/me`, `/charges/me` · GET `/invoices` | miembro · admin |
+| GET | `/invoices/me`, `/charges/me` · `/invoices`, `/charges` | miembro · admin |
 
 Cada servicio expone además `GET /health` y `GET /metrics` (Prometheus).
 

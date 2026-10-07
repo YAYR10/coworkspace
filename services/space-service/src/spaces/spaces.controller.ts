@@ -1,6 +1,16 @@
 import { BadRequestException, Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
-import { assertAdmin, AuthUser, CurrentUser } from '../common/current-user';
-import { CreateDeskDto, CreateLocationDto, CreateRoomDto, RoomQueryDto, UpdateDeskDto, UpdateRoomDto } from './spaces.dto';
+import { assertStaff, AuthUser, CurrentUser, isStaff, OptionalUser } from '../common/current-user';
+import {
+  CreateDeskDto,
+  CreateLocationDto,
+  CreateRoomDto,
+  DeskQueryDto,
+  LocationQueryDto,
+  RoomQueryDto,
+  UpdateDeskDto,
+  UpdateLocationDto,
+  UpdateRoomDto,
+} from './spaces.dto';
 import { ResourceType, SpacesService } from './spaces.service';
 
 @Controller('locations')
@@ -8,19 +18,32 @@ export class LocationsController {
   constructor(private readonly spaces: SpacesService) {}
 
   @Get()
-  findAll(@Query('city') city?: string) {
-    return this.spaces.findLocations(city);
+  findAll(@OptionalUser() user: AuthUser | null, @Query() query: LocationQueryDto) {
+    return this.spaces.findLocations(query, isStaff(user));
+  }
+
+  /** Países con sedes publicadas (debe ir antes de :id). */
+  @Get('countries')
+  countries() {
+    return this.spaces.findCountries();
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.spaces.findLocation(id);
+  findOne(@OptionalUser() user: AuthUser | null, @Param('id', ParseUUIDPipe) id: string) {
+    return this.spaces.findLocation(id, isStaff(user));
   }
 
   @Post()
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateLocationDto) {
-    assertAdmin(user);
+    assertStaff(user);
     return this.spaces.createLocation(dto);
+  }
+
+  /** Editar sede, sus servicios o publicarla/ocultarla (coordinador o administrador). */
+  @Patch(':id')
+  update(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateLocationDto) {
+    assertStaff(user);
+    return this.spaces.updateLocation(id, dto);
   }
 }
 
@@ -40,13 +63,13 @@ export class RoomsController {
 
   @Post()
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateRoomDto) {
-    assertAdmin(user);
+    assertStaff(user);
     return this.spaces.createRoom(dto);
   }
 
   @Patch(':id')
   update(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateRoomDto) {
-    assertAdmin(user);
+    assertStaff(user);
     return this.spaces.updateRoom(id, dto);
   }
 }
@@ -56,8 +79,8 @@ export class DesksController {
   constructor(private readonly spaces: SpacesService) {}
 
   @Get()
-  findAll(@Query('locationId') locationId?: string) {
-    return this.spaces.findDesks(locationId);
+  findAll(@Query() query: DeskQueryDto) {
+    return this.spaces.findDesks(query);
   }
 
   @Get(':id')
@@ -67,13 +90,13 @@ export class DesksController {
 
   @Post()
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateDeskDto) {
-    assertAdmin(user);
+    assertStaff(user);
     return this.spaces.createDesk(dto);
   }
 
   @Patch(':id')
   update(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateDeskDto) {
-    assertAdmin(user);
+    assertStaff(user);
     return this.spaces.updateDesk(id, dto);
   }
 }

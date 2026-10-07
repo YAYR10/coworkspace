@@ -3,8 +3,9 @@ import { api, ApiError, Booking, BusySlot, Desk, Location, Me, ResourceType, Roo
 import { SagaTracker } from '../components/SagaTracker';
 import { OPEN_HOUR, CLOSE_HOUR, Selection, Timeline } from '../components/Timeline';
 import { Empty, Loading, Notice, PageHead } from '../components/ui';
-import { atHour, EQUIPMENT, hourLabel, longDay, money, sameDay, startOfDay } from '../format';
+import { atHour, EQUIPMENT, plural, hourLabel, longDay, money, sameDay, startOfDay } from '../format';
 import { errorText, useLoad } from '../hooks';
+import { ALL, countryFilter, useCountry } from '../location';
 
 // Tarifas por hora cuando el plan no cubre el recurso (valores por defecto de Billing Service).
 const RATE: Record<ResourceType, number> = { ROOM: 50_000, DESK: 15_000 };
@@ -34,12 +35,15 @@ export function BookView({ onGoTo }: { onGoTo: (tab: 'reservas' | 'membresia') =
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const locations = useLoad(() => api.get<Location[]>('/api/locations'));
+  const country = useCountry();
+  const c = countryFilter(country);
+  const locations = useLoad(() => api.get<Location[]>(`/api/locations${c ? `?country=${encodeURIComponent(c)}` : ''}`), [c]);
   const me = useLoad(() => api.get<Me>('/api/members/me'));
   const resources = useLoad<Resource[]>(async () => {
     if (type === 'ROOM') {
       const q = new URLSearchParams();
       if (locationId) q.set('locationId', locationId);
+      if (c) q.set('country', c);
       if (minCapacity > 1) q.set('minCapacity', String(minCapacity));
       if (projector) q.set('equipment', 'projector');
       const rooms = await api.get<Room[]>(`/api/rooms?${q}`);
@@ -50,9 +54,12 @@ export function BookView({ onGoTo }: { onGoTo: (tab: 'reservas' | 'membresia') =
         detail: [`${r.capacity} personas`, ...Object.entries(r.equipment ?? {}).filter(([, v]) => v).map(([k]) => EQUIPMENT[k] ?? k)].join(', '),
       }));
     }
-    const desks = await api.get<Desk[]>(`/api/desks${locationId ? `?locationId=${locationId}` : ''}`);
+    const q = new URLSearchParams();
+    if (locationId) q.set('locationId', locationId);
+    if (c) q.set('country', c);
+    const desks = await api.get<Desk[]>(`/api/desks?${q}`);
     return desks.map((d) => ({ id: d.id, locationId: d.locationId, title: `Puesto ${d.code}`, detail: d.isDedicated ? 'Escritorio dedicado' : 'Puesto flexible' }));
-  }, [type, locationId, minCapacity, projector]);
+  }, [type, locationId, minCapacity, projector, c]);
 
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => startOfDay(new Date(firstDay().getTime() + i * 86_400_000))), []);
   const locName = useMemo(() => Object.fromEntries((locations.data ?? []).map((l) => [l.id, `${l.name}, ${l.city}`])), [locations.data]);
@@ -83,6 +90,10 @@ export function BookView({ onGoTo }: { onGoTo: (tab: 'reservas' | 'membresia') =
   useEffect(() => {
     setPicked(null);
   }, [type, day, locationId, minCapacity, projector]);
+
+  useEffect(() => {
+    setLocationId('');
+  }, [c]);
 
   const pick = (resourceId: string, h: number) => {
     setOutcome(null);
@@ -132,7 +143,35 @@ export function BookView({ onGoTo }: { onGoTo: (tab: 'reservas' | 'membresia') =
 
   return (
     <>
-      <PageHead title="Reservar">Elige el día, toca la hora de inicio y luego la hora final en la franja del espacio que quieras.</PageHead>
+      <PageHead title="Reservar">Elige una sede, el día, y toca la hora de inicio y luego la hora final en la franja del espacio que quieras.</PageHead>
+
+      <section className="sites" aria-label="Sedes">
+        <h2 className="sites-title">{country === ALL ? 'Sedes en todos los países' : `Sedes en ${country}`}</h2>
+        {locations.data && locations.data.length === 0 && (
+          <Empty title={`Aún no hay sedes publicadas en ${country}`}>Cambia de país con el botón de ubicación del encabezado.</Empty>
+        )}
+        <ul className="site-cards">
+          {locations.data?.map((l) => {
+            const on = locationId === l.id;
+            return (
+              <li key={l.id}>
+                <button className={`site-card${on ? ' is-on' : ''}`} aria-pressed={on} onClick={() => setLocationId(on ? '' : l.id)}>
+                  <span className="site-name">{l.name}</span>
+                  <span className="site-where">{l.address}, {l.city}{country === ALL ? `, ${l.country}` : ''}</span>
+                  {l.description && <span className="site-desc">{l.description}</span>}
+                  {l.services.length > 0 && (
+                    <span className="chips">
+                      {l.services.slice(0, 5).map((sv) => <span key={sv} className="chip">{sv}</span>)}
+                      {l.services.length > 5 && <span className="chip chip-more">+{l.services.length - 5}</span>}
+                    </span>
+                  )}
+                  <span className="site-count">{plural(l._count?.rooms ?? 0, 'sala', 'salas')}, {plural(l._count?.desks ?? 0, 'puesto', 'puestos')}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
 
       <div className="days" role="radiogroup" aria-label="Día">
         {days.map((d) => (

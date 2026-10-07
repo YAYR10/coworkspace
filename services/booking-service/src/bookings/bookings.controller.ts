@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
-import { AuthUser, CurrentUser } from '../common/current-user';
-import { AvailabilityQueryDto, CreateBookingDto } from './bookings.dto';
+import { assertStaff, AuthUser, CurrentUser } from '../common/current-user';
+import { AvailabilityQueryDto, CreateBookingDto, StaffBookingQueryDto } from './bookings.dto';
 import { BookingsService } from './bookings.service';
 
 @Controller('bookings')
@@ -10,6 +10,13 @@ export class BookingsController {
   @Post()
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateBookingDto) {
     return this.bookings.create(user.id, dto);
+  }
+
+  /** Todas las reservas: coordinador o administrador. */
+  @Get()
+  findAll(@CurrentUser() user: AuthUser, @Query() query: StaffBookingQueryDto) {
+    assertStaff(user);
+    return this.bookings.findAll(query);
   }
 
   @Get('me')

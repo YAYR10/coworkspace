@@ -8,6 +8,7 @@ import { InternalKeyGuard } from './common/internal-key.guard';
 import { EventsModule } from './events/events.module';
 import { HealthController } from './health/health.controller';
 import { MembersController } from './members/members.controller';
+import { MembersService } from './members/members.service';
 import { MetricsController } from './metrics/metrics.controller';
 import { PlansController } from './plans/plans.controller';
 import { PlansService } from './plans/plans.service';
@@ -28,6 +29,6 @@ import { SubscriptionsService } from './subscriptions/subscriptions.service';
     }),
   ],
   controllers: [AuthController, MembersController, PlansController, SubscriptionsController, HealthController, MetricsController],
-  providers: [AuthService, PlansService, SubscriptionsService, { provide: APP_GUARD, useClass: InternalKeyGuard }],
+  providers: [AuthService, MembersService, PlansService, SubscriptionsService, { provide: APP_GUARD, useClass: InternalKeyGuard }],
 })
 export class AppModule {}

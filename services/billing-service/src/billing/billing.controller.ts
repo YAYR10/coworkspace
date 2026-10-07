@@ -26,4 +26,11 @@ export class ChargesController {
   mine(@CurrentUser() user: AuthUser) {
     return this.billing.chargesOf(user.id);
   }
+
+  /** Todos los cobros adicionales (solo administrador). */
+  @Get()
+  all(@CurrentUser() user: AuthUser, @Query('memberId') memberId?: string) {
+    assertAdmin(user);
+    return this.billing.allCharges(memberId);
+  }
 }
