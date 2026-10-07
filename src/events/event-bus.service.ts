@@ -12,6 +12,9 @@ export interface DomainEvent<T = any> {
 
 type Handler = (event: DomainEvent) => unknown;
 
+/** Stream con el historial reciente de eventos de dominio. */
+export const EVENTS_STREAM = 'coworkspace:events';
+
 /** Bus de eventos sobre Redis Pub/Sub. El canal es el tipo de evento (p. ej. booking.created). */
 @Injectable()
 export class EventBus implements OnModuleDestroy {
@@ -29,7 +32,15 @@ export class EventBus implements OnModuleDestroy {
       occurredAt: new Date().toISOString(),
       data,
     };
-    await this.getPublisher().publish(type, JSON.stringify(event));
+    const json = JSON.stringify(event);
+    await this.getPublisher().publish(type, json);
+    // Copia en un Redis Stream: los consumidores que estaban dormidos (Notification Service
+    // en Render free) leen lo pendiente al despertar. Pub/Sub no guarda mensajes; el Stream sí.
+    try {
+      await this.getPublisher().xadd(EVENTS_STREAM, 'MAXLEN', '~', 2000, '*', 'type', type, 'event', json);
+    } catch (err) {
+      this.logger.warn(`No se pudo escribir ${type} en el stream: ${err.message}`);
+    }
     this.logger.log(`Evento publicado ${type} (${event.id})`);
     return event;
   }
