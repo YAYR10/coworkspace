@@ -47,6 +47,12 @@ export class MembersService {
     return { ok: true };
   }
 
+  async contact(id: string) {
+    const member = await this.prisma.member.findUnique({ where: { id }, select: { name: true, email: true } });
+    if (!member) throw new NotFoundException('Miembro no encontrado');
+    return member;
+  }
+
   /** Listado para el administrador, con búsqueda por nombre/correo y filtro por rol. */
   list(query: { q?: string; role?: string }) {
     const q = query.q?.trim();
