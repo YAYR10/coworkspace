@@ -5,7 +5,9 @@ import { OPEN_HOUR, CLOSE_HOUR, Selection, Timeline } from '../components/Timeli
 import { Empty, Loading, Notice, PageHead } from '../components/ui';
 import { atHour, EQUIPMENT, plural, hourLabel, longDay, money, sameDay, startOfDay } from '../format';
 import { errorText, useLoad } from '../hooks';
-import { ALL, countryFilter, useCountry } from '../location';
+import { ALL, countryFilter, distanceKm, formatKm, requestCoords, useCoords, useCountry } from '../location';
+import { SitesMap } from '../components/SitesMap';
+import { PinIcon } from '../components/LocationPrompt';
 
 // Tarifas por hora cuando el plan no cubre el recurso (valores por defecto de Billing Service).
 const RATE: Record<ResourceType, number> = { ROOM: 50_000, DESK: 15_000 };
@@ -36,6 +38,10 @@ export function BookView({ onGoTo }: { onGoTo: (tab: 'reservas' | 'membresia') =
   const [error, setError] = useState<string | null>(null);
 
   const country = useCountry();
+  const coords = useCoords();
+  const [showMap, setShowMap] = useState(true);
+  const [locating, setLocating] = useState(false);
+  const [geoError, setGeoError] = useState<string | null>(null);
   const c = countryFilter(country);
   const locations = useLoad(() => api.get<Location[]>(`/api/locations${c ? `?country=${encodeURIComponent(c)}` : ''}`), [c]);
   const me = useLoad(() => api.get<Me>('/api/members/me'));
@@ -63,6 +69,25 @@ export function BookView({ onGoTo }: { onGoTo: (tab: 'reservas' | 'membresia') =
 
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => startOfDay(new Date(firstDay().getTime() + i * 86_400_000))), []);
   const locName = useMemo(() => Object.fromEntries((locations.data ?? []).map((l) => [l.id, `${l.name}, ${l.city}`])), [locations.data]);
+  const sites = useMemo(() => {
+    const list = (locations.data ?? []).map((l) => ({
+      ...l,
+      km: coords && typeof l.latitude === 'number' && typeof l.longitude === 'number' ? distanceKm(coords, { lat: l.latitude, lng: l.longitude }) : null,
+    }));
+    return coords ? list.sort((a, b) => (a.km ?? Infinity) - (b.km ?? Infinity)) : list;
+  }, [locations.data, coords]);
+  const nearest = sites.find((l) => l.km !== null) ?? null;
+  const locate = async () => {
+    setLocating(true);
+    setGeoError(null);
+    try {
+      await requestCoords();
+    } catch (e) {
+      setGeoError((e as Error).message);
+    } finally {
+      setLocating(false);
+    }
+  };
   const plan = me.data?.subscriptions?.[0]?.plan;
   const covered = !!plan && plan.resourceAccess.includes(type);
 
@@ -146,26 +171,59 @@ export function BookView({ onGoTo }: { onGoTo: (tab: 'reservas' | 'membresia') =
       <PageHead title="Reservar">Elige una sede, el día, y toca la hora de inicio y luego la hora final en la franja del espacio que quieras.</PageHead>
 
       <section className="sites" aria-label="Sedes">
-        <h2 className="sites-title">{country === ALL ? 'Sedes en todos los países' : `Sedes en ${country}`}</h2>
+        <div className="sites-head">
+          <h2 className="sites-title">{country === ALL ? 'Sedes en todos los países' : `Sedes en ${country}`}</h2>
+          <div className="sites-actions">
+            <button className="btn btn-quiet" onClick={() => void locate()} disabled={locating}>
+              <PinIcon /> {locating ? 'Buscando…' : coords ? 'Actualizar mi ubicación' : 'Ver la más cercana'}
+            </button>
+            <button className="btn btn-quiet" aria-pressed={showMap} onClick={() => setShowMap(!showMap)}>
+              {showMap ? 'Ocultar mapa' : 'Ver mapa'}
+            </button>
+          </div>
+        </div>
+        {geoError && <Notice tone="error">{geoError}</Notice>}
+        {nearest && nearest.km !== null && (
+          <p className="nearest">
+            La sede más cercana a ti es <button className="link" onClick={() => setLocationId(nearest.id)}>{nearest.name}</button>, a {formatKm(nearest.km)}.
+          </p>
+        )}
         {locations.data && locations.data.length === 0 && (
           <Empty title={`Aún no hay sedes publicadas en ${country}`}>Cambia de país con el botón de ubicación del encabezado.</Empty>
         )}
+        {showMap && sites.length > 0 && (
+          <SitesMap locations={sites} selectedId={locationId} onSelect={(id) => setLocationId(id === locationId ? '' : id)} me={coords} />
+        )}
         <ul className="site-cards">
-          {locations.data?.map((l) => {
+          {sites.map((l) => {
             const on = locationId === l.id;
             return (
               <li key={l.id}>
                 <button className={`site-card${on ? ' is-on' : ''}`} aria-pressed={on} onClick={() => setLocationId(on ? '' : l.id)}>
-                  <span className="site-name">{l.name}</span>
-                  <span className="site-where">{l.address}, {l.city}{country === ALL ? `, ${l.country}` : ''}</span>
-                  {l.description && <span className="site-desc">{l.description}</span>}
-                  {l.services.length > 0 && (
-                    <span className="chips">
-                      {l.services.slice(0, 5).map((sv) => <span key={sv} className="chip">{sv}</span>)}
-                      {l.services.length > 5 && <span className="chip chip-more">+{l.services.length - 5}</span>}
-                    </span>
+                  {l.photoUrl && (
+                    <img
+                      className="site-photo"
+                      src={l.photoUrl}
+                      alt=""
+                      loading="lazy"
+                      onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
+                    />
                   )}
-                  <span className="site-count">{plural(l._count?.rooms ?? 0, 'sala', 'salas')}, {plural(l._count?.desks ?? 0, 'puesto', 'puestos')}</span>
+                  <span className="site-body">
+                    <span className="site-name">{l.name}</span>
+                    <span className="site-where">
+                      {l.address}, {l.city}{country === ALL ? `, ${l.country}` : ''}
+                      {l.km !== null && <strong className="site-km"> · a {formatKm(l.km)}</strong>}
+                    </span>
+                    {l.description && <span className="site-desc">{l.description}</span>}
+                    {l.services.length > 0 && (
+                      <span className="chips">
+                        {l.services.slice(0, 5).map((sv) => <span key={sv} className="chip">{sv}</span>)}
+                        {l.services.length > 5 && <span className="chip chip-more">+{l.services.length - 5}</span>}
+                      </span>
+                    )}
+                    <span className="site-count">{plural(l._count?.rooms ?? 0, 'sala', 'salas')}, {plural(l._count?.desks ?? 0, 'puesto', 'puestos')}</span>
+                  </span>
                 </button>
               </li>
             );

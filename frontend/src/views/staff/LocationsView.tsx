@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { api, Desk, Location, Room } from '../../api';
+import { PhotoField } from '../../components/PhotoField';
 import { ServicesPicker } from '../../components/ServicesPicker';
+import { geocode, MapPicker } from '../../components/SitesMap';
 import { Empty, Loading, Notice, PageHead } from '../../components/ui';
 import { EQUIPMENT } from '../../format';
 import { errorText, useLoad } from '../../hooks';
@@ -10,7 +12,7 @@ type LocationDetail = Location & { rooms: Room[]; desks: Desk[] };
 type Msg = { tone: 'ok' | 'error'; text: string } | null;
 
 /** Coordinador y administrador: publicar sedes, sus servicios, salas y puestos. */
-export function LocationsView() {
+export function LocationsView({ isAdmin }: { isAdmin: boolean }) {
   const locations = useLoad(() => api.get<Location[]>('/api/locations?all=true'));
   const [countryTab, setCountryTab] = useState<string>(() => countryFilter(getCountry()) ?? ALL);
   const [selected, setSelected] = useState<string>('');
@@ -50,6 +52,19 @@ export function LocationsView() {
   const fail = (e: unknown) => setMsg({ tone: 'error', text: errorText(e) });
 
   const published = (locations.data ?? []).filter((l) => l.isPublished).length;
+  const [seeding, setSeeding] = useState(false);
+  const seedDemo = async () => {
+    setSeeding(true);
+    try {
+      const r = await api.post<{ created: number; total: number }>('/api/locations/demo');
+      await done(r.created ? `Se crearon ${r.created} sedes de ejemplo en Colombia, México, Perú y España.` : 'Las sedes de ejemplo ya existían.');
+      setCountryTab(ALL);
+    } catch (e) {
+      fail(e);
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   return (
     <>
@@ -66,6 +81,11 @@ export function LocationsView() {
           ))}
         </div>
         <p className="toolbar-note">{published} publicadas de {locations.data?.length ?? 0}</p>
+        {isAdmin && (
+          <button className="btn btn-ghost" disabled={seeding} onClick={() => void seedDemo()} title="Crea sedes con fotos, servicios y ubicación en varios países">
+            {seeding ? 'Creando…' : 'Crear sedes de ejemplo'}
+          </button>
+        )}
         <button className="btn btn-primary" onClick={() => { setCreating(true); setSelected(''); setDetail(null); }}>Nueva sede</button>
       </div>
 
@@ -115,7 +135,10 @@ export function LocationsView() {
   );
 }
 
-type LocationBody = { name: string; country: string; city: string; address: string; description?: string; services: string[]; isPublished: boolean };
+type LocationBody = {
+  name: string; country: string; city: string; address: string; description?: string; services: string[]; isPublished: boolean;
+  latitude: number | null; longitude: number | null;
+};
 
 function LocationForm({
   title,
@@ -138,8 +161,25 @@ function LocationForm({
     description: initial.description ?? '',
     services: initial.services ?? [],
     isPublished: initial.isPublished ?? true,
+    latitude: initial.latitude ?? null,
+    longitude: initial.longitude ?? null,
   });
   const [busy, setBusy] = useState(false);
+  const [finding, setFinding] = useState(false);
+  const [geoMsg, setGeoMsg] = useState<string | null>(null);
+  const findAddress = async () => {
+    setFinding(true);
+    setGeoMsg(null);
+    try {
+      const found = await geocode([f.address, f.city, f.country].filter(Boolean).join(', '));
+      if (found) setF((prev) => ({ ...prev, latitude: found.lat, longitude: found.lng }));
+      else setGeoMsg('No encontramos esa dirección. Haz clic en el mapa para ubicar la sede.');
+    } catch {
+      setGeoMsg('No se pudo buscar la dirección. Haz clic en el mapa para ubicar la sede.');
+    } finally {
+      setFinding(false);
+    }
+  };
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
@@ -159,6 +199,22 @@ function LocationForm({
         <span>Descripción</span>
         <textarea rows={3} maxLength={500} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="Qué hace especial a esta sede" />
       </label>
+      <fieldset className="services-picker">
+        <legend>Ubicación en el mapa</legend>
+        <div className="form-actions form-actions-start">
+          <button type="button" className="btn btn-ghost" disabled={finding || !f.address || !f.city} onClick={() => void findAddress()}>
+            {finding ? 'Buscando…' : 'Buscar la dirección'}
+          </button>
+          <span className="hint hint-inline">
+            {f.latitude !== null && f.longitude !== null ? `Ubicada: ${f.latitude}, ${f.longitude}` : 'O haz clic en el mapa'}
+          </span>
+        </div>
+        <MapPicker
+          value={f.latitude !== null && f.longitude !== null ? { lat: f.latitude, lng: f.longitude } : null}
+          onChange={(c) => setF((prev) => ({ ...prev, latitude: c.lat, longitude: c.lng }))}
+        />
+        {geoMsg && <p className="hint">{geoMsg}</p>}
+      </fieldset>
       <ServicesPicker value={f.services} onChange={(services) => setF({ ...f, services })} />
       <label className="check">
         <input type="checkbox" checked={f.isPublished} onChange={(e) => setF({ ...f, isPublished: e.target.checked })} />
@@ -211,7 +267,11 @@ function LocationDetailPanel({ detail, onDone, onError }: { detail: LocationDeta
         </div>
         <span className={`tag ${detail.isPublished ? 'tag-confirmed' : 'tag-hidden'}`}>{detail.isPublished ? 'Publicada' : 'Oculta'}</span>
       </div>
+      <PhotoField location={detail} onChanged={(t) => void onDone(t)} />
       {detail.description && <p>{detail.description}</p>}
+      {(detail.latitude === null || detail.latitude === undefined) && (
+        <p className="hint">Esta sede no está ubicada en el mapa. Edítala para agregar su ubicación.</p>
+      )}
       <div className="chips">
         {detail.services.length === 0 && <span className="hint">Sin servicios publicados.</span>}
         {detail.services.map((s) => <span key={s} className="chip">{s}</span>)}

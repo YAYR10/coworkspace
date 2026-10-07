@@ -140,7 +140,7 @@ export default function App() {
           {current === 'usuarios' && <UsersView me={session.member.id} />}
           {current === 'planes' && <PlansView />}
           {current === 'facturacion' && <FinanceView />}
-          {current === 'sedes' && <LocationsView />}
+          {current === 'sedes' && <LocationsView isAdmin={role === 'ADMIN'} />}
           {current === 'ocupacion' && <OccupancyView isAdmin={role === 'ADMIN'} />}
           {current === 'reservar' && <BookView onGoTo={go} />}
           {current === 'reservas' && <BookingsView onGoTo={go} />}

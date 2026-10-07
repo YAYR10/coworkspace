@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { CacheService } from '../cache/cache.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -8,11 +8,13 @@ import {
   CreateRoomDto,
   DeskQueryDto,
   LocationQueryDto,
+  PhotoUploadDto,
   RoomQueryDto,
   UpdateDeskDto,
   UpdateLocationDto,
   UpdateRoomDto,
 } from './spaces.dto';
+import { DEMO_LOCATIONS } from './demo-data';
 
 export type ResourceType = 'ROOM' | 'DESK';
 
@@ -99,6 +101,46 @@ export class SpacesService {
       );
     }
     return location;
+  }
+
+  // ---------- Foto de la sede ----------
+  async setPhoto(id: string, dto: PhotoUploadDto) {
+    await this.findLocation(id);
+    const [, mime, base64] = /^data:(image\/[a-z]+);base64,(.+)$/.exec(dto.dataUrl) ?? [];
+    if (!mime || !base64) throw new BadRequestException('Formato de imagen inválido');
+    const data = Buffer.from(base64, 'base64');
+    if (data.length > 2 * 1024 * 1024) throw new BadRequestException('La foto es demasiado grande (máx. 2 MB)');
+    await this.prisma.locationPhoto.upsert({ where: { locationId: id }, create: { locationId: id, mime, data }, update: { mime, data } });
+    // ?v= cambia en cada subida para que el navegador no muestre la foto anterior en caché
+    return this.prisma.location.update({ where: { id }, data: { photoUrl: `/api/locations/${id}/photo?v=${Date.now()}` } });
+  }
+
+  async getPhoto(id: string) {
+    const photo = await this.prisma.locationPhoto.findUnique({ where: { locationId: id } });
+    if (!photo) throw new NotFoundException('La sede no tiene foto');
+    return photo;
+  }
+
+  async deletePhoto(id: string) {
+    await this.findLocation(id);
+    await this.prisma.locationPhoto.deleteMany({ where: { locationId: id } });
+    return this.prisma.location.update({ where: { id }, data: { photoUrl: null } });
+  }
+
+  // ---------- Sedes de ejemplo ----------
+  /** Crea las sedes de ejemplo que aún no existan (por nombre y ciudad). Se puede ejecutar varias veces. */
+  async seedDemo() {
+    let created = 0;
+    for (const demo of DEMO_LOCATIONS) {
+      const exists = await this.prisma.location.findFirst({ where: { name: demo.name, city: demo.city } });
+      if (exists) continue;
+      const { rooms, desks, ...location } = demo;
+      await this.prisma.location.create({
+        data: { ...location, isPublished: true, rooms: { create: rooms }, desks: { create: desks } },
+      });
+      created += 1;
+    }
+    return { created, total: DEMO_LOCATIONS.length };
   }
 
   // ---------- Salas ----------

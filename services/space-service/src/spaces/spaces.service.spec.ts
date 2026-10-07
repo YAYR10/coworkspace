@@ -58,3 +58,44 @@ describe('SpacesService.findCountries', () => {
     ]);
   });
 });
+
+describe('SpacesService: fotos y sedes de ejemplo', () => {
+  let prisma: any;
+  let service: SpacesService;
+
+  beforeEach(() => {
+    prisma = {
+      location: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'l-1', isPublished: true, rooms: [], desks: [] }),
+        findFirst: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn((args: any) => Promise.resolve({ id: 'l-1', ...args.data })),
+      },
+      locationPhoto: { upsert: jest.fn() },
+    };
+    service = new SpacesService(prisma, { del: jest.fn() } as any);
+  });
+
+  it('guarda la foto y actualiza la URL con una versión nueva', async () => {
+    const dataUrl = `data:image/jpeg;base64,${Buffer.from('fake-jpeg').toString('base64')}`;
+    const result = await service.setPhoto('l-1', { dataUrl });
+    expect(prisma.locationPhoto.upsert).toHaveBeenCalledWith(expect.objectContaining({ create: expect.objectContaining({ mime: 'image/jpeg' }) }));
+    expect(result.photoUrl).toMatch(/^\/api\/locations\/l-1\/photo\?v=\d+$/);
+  });
+
+  it('las sedes de ejemplo no se duplican si ya existen', async () => {
+    prisma.location.findFirst.mockResolvedValue({ id: 'ya-existe' });
+    const result = await service.seedDemo();
+    expect(result.created).toBe(0);
+    expect(prisma.location.create).not.toHaveBeenCalled();
+  });
+
+  it('crea las sedes de ejemplo con salas y puestos', async () => {
+    prisma.location.findFirst.mockResolvedValue(null);
+    const result = await service.seedDemo();
+    expect(result.created).toBe(result.total);
+    expect(prisma.location.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ rooms: { create: expect.any(Array) }, desks: { create: expect.any(Array) } }) }),
+    );
+  });
+});

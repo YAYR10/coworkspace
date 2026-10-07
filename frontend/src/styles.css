@@ -388,9 +388,11 @@ textarea { font: inherit; color: inherit; }
 .sites-title { font: 700 20px/1.2 var(--display); }
 .site-cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
 .site-card {
-  width: 100%; height: 100%; display: grid; align-content: start; gap: 6px; text-align: left; cursor: pointer;
-  padding: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r);
+  width: 100%; height: 100%; display: grid; grid-template-rows: auto 1fr; text-align: left; cursor: pointer; overflow: hidden;
+  padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r);
 }
+.site-photo { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; background: var(--slot); }
+.site-body { display: grid; align-content: start; gap: 6px; padding: 14px 16px 16px; }
 .site-card:hover { border-color: var(--ink); }
 .site-card.is-on { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink), inset 0 -4px 0 var(--accent); }
 .site-name { font: 700 18px/1.2 var(--display); }
@@ -475,3 +477,25 @@ textarea { font: inherit; color: inherit; }
   .topbar-end .status-btn { padding: 4px 8px; }
   .services-add { flex-direction: column; }
 }
+
+/* ---------- mapa y fotos ---------- */
+.sites-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 16px; }
+.sites-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+.sites-actions .btn { gap: 6px; }
+.nearest { font-size: 15px; }
+.site-km { color: var(--ok); font-weight: 600; }
+.sites-map, .picker-map { width: 100%; border: 1px solid var(--line); border-radius: var(--r); background: var(--slot); z-index: 0; }
+.sites-map { height: clamp(260px, 38vh, 380px); }
+.picker-map { height: 260px; cursor: crosshair; }
+.map-pin { background: none; border: 0; }
+.map-pin svg path { fill: var(--ink); stroke: #fff; stroke-width: 1.5; }
+.map-pin svg circle { fill: #fff; }
+.map-pin-on svg path { fill: var(--accent); stroke: var(--ink); }
+.map-pin-on svg circle { fill: var(--ink); }
+.map-me { display: block; width: 18px; height: 18px; border-radius: 50%; background: #2563eb; border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(37, 99, 235, .25); }
+.leaflet-container { font: inherit; }
+.leaflet-tooltip { font-size: 13px; font-weight: 600; }
+.photo-field { display: grid; gap: 10px; }
+.photo-preview { width: 100%; max-height: 260px; object-fit: cover; border-radius: var(--r); border: 1px solid var(--line); display: block; }
+.photo-empty { padding: 28px 16px; border: 1px dashed var(--line); border-radius: var(--r); color: var(--muted); font-size: 14px; text-align: center; }
+.hint-inline { margin: 0; align-self: center; }

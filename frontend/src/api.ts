@@ -27,6 +27,7 @@ export type ResourceType = 'ROOM' | 'DESK';
 export interface Location {
   id: string; name: string; country: string; city: string; address: string;
   description?: string | null; services: string[]; isPublished: boolean;
+  photoUrl?: string | null; latitude?: number | null; longitude?: number | null;
   _count?: { rooms: number; desks: number };
 }
 export interface CountryInfo { country: string; locations: number; cities: string[] }
@@ -135,6 +136,8 @@ export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body: JSON.stringify(body ?? {}) }),
   patch: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PATCH', body: JSON.stringify(body ?? {}) }),
+  put: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PUT', body: JSON.stringify(body ?? {}) }),
+  del: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 };
 
 export async function login(email: string, password: string) {

@@ -80,6 +80,68 @@ export interface Detected {
   city?: string;
 }
 
+// ---------------------------------------------------------------- coordenadas del usuario
+export interface Coords { lat: number; lng: number }
+const COORDS_KEY = 'coworkspace.coords';
+let coords: Coords | null = (() => {
+  try {
+    const raw = localStorage.getItem(COORDS_KEY);
+    return raw ? (JSON.parse(raw) as Coords) : null;
+  } catch {
+    return null;
+  }
+})();
+const coordListeners = new Set<(c: Coords | null) => void>();
+export function setCoords(next: Coords | null) {
+  coords = next;
+  try {
+    if (next) localStorage.setItem(COORDS_KEY, JSON.stringify(next));
+    else localStorage.removeItem(COORDS_KEY);
+  } catch {
+    /* sin almacenamiento */
+  }
+  coordListeners.forEach((fn) => fn(next));
+}
+export function useCoords(): Coords | null {
+  const [c, setC] = useState(coords);
+  useEffect(() => {
+    coordListeners.add(setC);
+    return () => {
+      coordListeners.delete(setC);
+    };
+  }, []);
+  return c;
+}
+
+/** Pide solo las coordenadas (para la sede más cercana). */
+export function requestCoords(): Promise<Coords> {
+  return new Promise((resolve, reject) => {
+    if (!('geolocation' in navigator)) {
+      reject(new Error('Tu navegador no permite compartir la ubicación.'));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      ({ coords: c }) => {
+        const next = { lat: c.latitude, lng: c.longitude };
+        setCoords(next);
+        resolve(next);
+      },
+      (err) => reject(new Error(err.code === err.PERMISSION_DENIED ? 'No diste permiso de ubicación.' : 'No pudimos obtener tu ubicación.')),
+      { timeout: 12_000, maximumAge: 600_000 },
+    );
+  });
+}
+
+/** Distancia en km entre dos puntos (fórmula del haversine). */
+export function distanceKm(a: Coords, b: Coords): number {
+  const rad = (x: number) => (x * Math.PI) / 180;
+  const dLat = rad(b.lat - a.lat);
+  const dLng = rad(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.sqrt(h));
+}
+export const formatKm = (km: number) => (km < 1 ? `${Math.round(km * 1000)} m` : `${km < 10 ? km.toFixed(1).replace('.', ',') : Math.round(km)} km`);
+
 /** Pide la ubicación al navegador y la convierte en país y ciudad. */
 export function detectByGps(): Promise<Detected> {
   return new Promise((resolve, reject) => {
@@ -88,9 +150,10 @@ export function detectByGps(): Promise<Detected> {
       return;
     }
     navigator.geolocation.getCurrentPosition(
-      async ({ coords }) => {
+      async ({ coords: c }) => {
+        setCoords({ lat: c.latitude, lng: c.longitude });
         try {
-          const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${coords.latitude}&longitude=${coords.longitude}&localityLanguage=es`;
+          const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${c.latitude}&longitude=${c.longitude}&localityLanguage=es`;
           const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
           const data = await res.json();
           if (!data.countryName) throw new Error('sin país');
