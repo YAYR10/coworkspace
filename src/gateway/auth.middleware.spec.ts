@@ -50,4 +50,11 @@ describe('AuthMiddleware', () => {
     const { res } = run({ path: '/api/bookings/me', headers: { authorization: `Bearer ${token}` } });
     expect(res.statusCode).toBe(401);
   });
+
+  it('no expone el contacto interno de los miembros hacia afuera', () => {
+    const token = jwt.sign({ sub: 'm-1', role: 'ADMIN', email: 'a@b.co' }, SECRET);
+    const { res, next } = run({ path: '/api/members/0b8c1c1e-1111-4111-8111-111111111111/contact', headers: { authorization: `Bearer ${token}` } });
+    expect(res.statusCode).toBe(404);
+    expect(next).not.toHaveBeenCalled();
+  });
 });
