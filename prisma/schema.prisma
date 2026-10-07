@@ -18,9 +18,15 @@ model Location {
   services    String[] @default([])
   /// Una sede sin publicar solo la ven coordinadores y administradores
   isPublished Boolean  @default(true) @map("is_published")
+  /// Foto subida (/api/locations/:id/photo) o URL externa
+  photoUrl    String?  @map("photo_url")
+  /// Coordenadas para el mapa de sedes
+  latitude    Float?
+  longitude   Float?
   createdAt   DateTime @default(now()) @map("created_at")
   rooms       Room[]
   desks       Desk[]
+  photo       LocationPhoto?
 
   @@index([country, city])
   @@index([city])
@@ -51,4 +57,16 @@ model Desk {
 
   @@unique([locationId, code])
   @@map("desks")
+}
+
+/// Foto de la sede guardada en PostgreSQL (el disco de Render free es efímero).
+/// Se redimensiona en el navegador antes de subirla (máx. ~1 MB).
+model LocationPhoto {
+  locationId String   @id @map("location_id")
+  mime       String
+  data       Bytes
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@map("location_photos")
 }

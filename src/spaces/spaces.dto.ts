@@ -1,5 +1,21 @@
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, IsArray, IsBoolean, IsInt, IsObject, IsOptional, IsString, IsUUID, Length, MaxLength, Min } from 'class-validator';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsBoolean,
+  IsInt,
+  IsLatitude,
+  IsLongitude,
+  IsObject,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Length,
+  Matches,
+  MaxLength,
+  Min,
+  ValidateIf,
+} from 'class-validator';
 
 export class CreateLocationDto {
   @IsString()
@@ -32,6 +48,23 @@ export class CreateLocationDto {
   @IsOptional()
   @IsBoolean()
   isPublished?: boolean;
+
+  /** URL https de una imagen externa, o la ruta de la foto subida */
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @Matches(/^(https:\/\/\S+|\/api\/locations\/[0-9a-f-]+\/photo\S*)$/, { message: 'photoUrl debe ser una URL https' })
+  @MaxLength(500)
+  photoUrl?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsLatitude()
+  latitude?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsLongitude()
+  longitude?: number | null;
 }
 
 export class UpdateLocationDto {
@@ -68,6 +101,23 @@ export class UpdateLocationDto {
   @IsOptional()
   @IsBoolean()
   isPublished?: boolean;
+
+  /** URL https de una imagen externa, o la ruta de la foto subida */
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @Matches(/^(https:\/\/\S+|\/api\/locations\/[0-9a-f-]+\/photo\S*)$/, { message: 'photoUrl debe ser una URL https' })
+  @MaxLength(500)
+  photoUrl?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsLatitude()
+  latitude?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsLongitude()
+  longitude?: number | null;
 }
 
 export class LocationQueryDto {
@@ -172,4 +222,11 @@ export class DeskQueryDto {
   @IsOptional()
   @IsString()
   country?: string;
+}
+
+export class PhotoUploadDto {
+  /** data:image/jpeg;base64,... (máx. ~2 MB) */
+  @Matches(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/, { message: 'La foto debe ser JPG, PNG o WebP' })
+  @MaxLength(2_800_000, { message: 'La foto es demasiado grande (máx. 2 MB)' })
+  dataUrl: string;
 }

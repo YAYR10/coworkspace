@@ -1,11 +1,13 @@
-import { BadRequestException, Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
-import { assertStaff, AuthUser, CurrentUser, isStaff, OptionalUser } from '../common/current-user';
+import { BadRequestException, Body, Controller, Delete, Get, Header, Param, ParseUUIDPipe, Patch, Post, Put, Query, Res, StreamableFile } from '@nestjs/common';
+import type { Response } from 'express';
+import { assertAdmin, assertStaff, AuthUser, CurrentUser, isStaff, OptionalUser } from '../common/current-user';
 import {
   CreateDeskDto,
   CreateLocationDto,
   CreateRoomDto,
   DeskQueryDto,
   LocationQueryDto,
+  PhotoUploadDto,
   RoomQueryDto,
   UpdateDeskDto,
   UpdateLocationDto,
@@ -31,6 +33,34 @@ export class LocationsController {
   @Get(':id')
   findOne(@OptionalUser() user: AuthUser | null, @Param('id', ParseUUIDPipe) id: string) {
     return this.spaces.findLocation(id, isStaff(user));
+  }
+
+  /** Foto de la sede (pública, cacheable). */
+  @Get(':id/photo')
+  @Header('Cache-Control', 'public, max-age=86400')
+  async photo(@Param('id', ParseUUIDPipe) id: string, @Res({ passthrough: true }) res: Response) {
+    const photo = await this.spaces.getPhoto(id);
+    res.setHeader('Content-Type', photo.mime);
+    return new StreamableFile(Buffer.from(photo.data));
+  }
+
+  @Put(':id/photo')
+  uploadPhoto(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body() dto: PhotoUploadDto) {
+    assertStaff(user);
+    return this.spaces.setPhoto(id, dto);
+  }
+
+  @Delete(':id/photo')
+  deletePhoto(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    assertStaff(user);
+    return this.spaces.deletePhoto(id);
+  }
+
+  /** Crea sedes de ejemplo en varios países (solo administrador). */
+  @Post('demo')
+  seedDemo(@CurrentUser() user: AuthUser) {
+    assertAdmin(user);
+    return this.spaces.seedDemo();
   }
 
   @Post()
