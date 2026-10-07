@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsDate, IsEnum, IsISO8601, IsUUID } from 'class-validator';
+import { IsDate, IsEnum, IsIn, IsISO8601, IsOptional, IsUUID } from 'class-validator';
 import { ResourceType } from '@prisma/client';
 
 export class CreateBookingDto {
@@ -27,4 +27,25 @@ export class AvailabilityQueryDto {
   @Type(() => Date)
   @IsDate()
   to: Date;
+}
+
+/** Filtros del listado de reservas para coordinadores y administradores. */
+export class StaffBookingQueryDto {
+  @IsOptional()
+  @IsUUID()
+  locationId?: string;
+
+  @IsOptional()
+  @IsIn(['PENDING', 'CONFIRMED', 'CANCELLED'])
+  status?: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
+
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  from?: Date;
+
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  to?: Date;
 }

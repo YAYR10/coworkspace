@@ -1,12 +1,12 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Booking, BookingStatus, ResourceType } from '@prisma/client';
-import { AuthUser } from '../common/current-user';
+import { AuthUser, isStaff } from '../common/current-user';
 import { EventBus } from '../events/event-bus.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SpaceClient } from '../space/space.client';
 import { BookingMetrics } from './booking.metrics';
-import { AvailabilityQueryDto, CreateBookingDto } from './bookings.dto';
+import { AvailabilityQueryDto, CreateBookingDto, StaffBookingQueryDto } from './bookings.dto';
 
 const ACTIVE: BookingStatus[] = ['PENDING', 'CONFIRMED'];
 
@@ -146,9 +146,23 @@ export class BookingsService implements OnModuleInit {
     return this.prisma.booking.findMany({ where: { memberId }, orderBy: { startTime: 'desc' }, take: 100 });
   }
 
+  /** Ocupación de todas las sedes (coordinador o administrador). */
+  findAll(query: StaffBookingQueryDto) {
+    return this.prisma.booking.findMany({
+      where: {
+        locationId: query.locationId,
+        status: query.status,
+        startTime: query.to ? { lt: query.to } : undefined,
+        endTime: query.from ? { gt: query.from } : undefined,
+      },
+      orderBy: { startTime: 'desc' },
+      take: 300,
+    });
+  }
+
   async findOne(user: AuthUser, id: string) {
     const booking = await this.prisma.booking.findUnique({ where: { id } });
-    if (!booking || (booking.memberId !== user.id && user.role !== 'ADMIN')) throw new NotFoundException('Reserva no encontrada');
+    if (!booking || (booking.memberId !== user.id && !isStaff(user))) throw new NotFoundException('Reserva no encontrada');
     return booking;
   }
 
@@ -165,7 +179,8 @@ export class BookingsService implements OnModuleInit {
   async cancel(user: AuthUser, id: string) {
     const booking = await this.findOne(user, id);
     if (booking.status === 'CANCELLED') throw new ConflictException('La reserva ya está cancelada');
-    const cancelled = await this.markCancelled(booking.id, 'CANCELLED_BY_MEMBER', ACTIVE);
+    const reason = booking.memberId === user.id ? 'CANCELLED_BY_MEMBER' : 'CANCELLED_BY_STAFF';
+    const cancelled = await this.markCancelled(booking.id, reason, ACTIVE);
     if (!cancelled) throw new ConflictException('La reserva cambió de estado, vuelve a consultarla');
     return cancelled;
   }
