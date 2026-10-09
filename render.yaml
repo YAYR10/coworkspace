@@ -78,8 +78,8 @@ services:
         fromDatabase: { name: coworkspace-db, property: connectionString }
       - key: REDIS_URL
         fromService: { type: keyvalue, name: coworkspace-redis, property: connectionString }
-      - key: SPACE_SERVICE_URL      # https://coworkspace-space.onrender.com (o la URL que te asigne Render)
-        sync: false
+      - key: SPACE_SERVICE_URL
+        value: https://coworkspace-space.onrender.com
       - key: SPACE_TIMEOUT_MS
         value: "60000"
 
@@ -144,14 +144,14 @@ services:
     healthCheckPath: /health
     envVars:
       - fromGroup: coworkspace-shared
-      - key: MEMBERSHIP_SERVICE_URL   # https://coworkspace-membership.onrender.com
-        sync: false
-      - key: SPACE_SERVICE_URL        # https://coworkspace-space.onrender.com
-        sync: false
-      - key: BOOKING_SERVICE_URL      # https://coworkspace-booking.onrender.com
-        sync: false
-      - key: BILLING_SERVICE_URL      # https://coworkspace-billing.onrender.com
-        sync: false
+      - key: MEMBERSHIP_SERVICE_URL
+        value: https://coworkspace-membership.onrender.com
+      - key: SPACE_SERVICE_URL
+        value: https://coworkspace-space.onrender.com
+      - key: BOOKING_SERVICE_URL
+        value: https://coworkspace-booking.onrender.com
+      - key: BILLING_SERVICE_URL
+        value: https://coworkspace-billing.onrender.com
       - key: NOTIFICATION_SERVICE_URL
         value: https://coworkspace-notification.onrender.com
       - key: CORS_ORIGIN              # URL del frontend en Vercel
