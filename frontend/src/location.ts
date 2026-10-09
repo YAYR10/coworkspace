@@ -176,3 +176,11 @@ export function detectByGps(): Promise<Detected> {
     );
   });
 }
+
+/** Convierte una dirección en coordenadas con OpenStreetMap (Nominatim). Sirve para ordenar por cercanía. */
+export async function geocode(query: string): Promise<Coords | null> {
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=es&q=${encodeURIComponent(query)}`;
+  const res = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10_000) });
+  const data = (await res.json()) as { lat: string; lon: string }[];
+  return data[0] ? { lat: +(+data[0].lat).toFixed(6), lng: +(+data[0].lon).toFixed(6) } : null;
+}

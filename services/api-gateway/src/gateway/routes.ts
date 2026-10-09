@@ -38,6 +38,8 @@ export const PUBLIC_ROUTES: { method: string; pattern: RegExp }[] = [
   { method: 'POST', pattern: /^\/api\/auth\/(register|login|refresh|logout)\/?$/ },
   { method: 'GET', pattern: /^\/api\/plans\/?$/ },
   { method: 'GET', pattern: /^\/api\/(locations|rooms|desks)(\/.*)?$/ },
+  // Horarios ocupados de un espacio (sin datos de quién reservó): la portada los muestra sin iniciar sesión
+  { method: 'GET', pattern: /^\/api\/bookings\/availability\/?$/ },
 ];
 
 /** Endpoints internos entre servicios que nunca se exponen hacia afuera. */

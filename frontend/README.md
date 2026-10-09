@@ -2,15 +2,16 @@
 
 Interfaz de CoworkSpace (React + Vite + TypeScript). Habla solo con el **API Gateway**; nunca llama directo a los microservicios.
 
-| Sección | Qué hace | Servicio detrás |
+| Pantalla | Qué hace | Servicio detrás |
 |---|---|---|
-| Arranque | Espera a que los 4 servicios respondan (`/health/services`) | Gateway |
-| Acceso | Registro e inicio de sesión con JWT (renueva el token vencido solo) | Membership |
-| Reservar | Disponibilidad por horas, reserva y seguimiento de la saga en vivo | Space, Booking, Billing |
-| Mis reservas | Reservas próximas y pasadas, cancelación, lista de espera | Booking |
-| Membresía | Plan actual, suscripción y renovación | Membership |
-| Pagos | Facturas del plan y cobros por horas | Billing |
-| Administrar (rol ADMIN) | Sedes, salas y puestos; facturación total | Space, Billing |
+| Portada (pública) | Buscador por país, ciudad, tipo de espacio y personas; filtros por servicios; lista o mapa de Google; planes | Gateway, Space, Membership |
+| Sede (pública) | Foto, servicios, salas y puestos con precio, horarios libres, mapa y "Cómo llegar" | Space, Booking |
+| Reserva | El acceso (iniciar sesión o crear cuenta) se pide **solo al reservar**, en una ventana; después la reserva continúa sola y se ve la saga en vivo | Membership, Booking, Billing |
+| Mi cuenta | Reservas, membresía, pagos, notificaciones y perfil | Booking, Membership, Billing, Notification |
+| Panel (coordinador / admin) | Sedes y servicios, ocupación; el admin además usuarios y roles, planes, facturación y correos | Todos |
+
+Los mapas son de Google Maps (iframe, sin clave de API). Si la sede tiene coordenadas se usan; si no, Google ubica la dirección escrita.
+Mientras los servicios del plan gratuito despiertan, las consultas se reintentan solas y se muestra un aviso discreto.
 
 ## Desarrollo local
 
