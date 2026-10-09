@@ -65,3 +65,8 @@ export const initials = (name: string) =>
 
 /** "1 sede" / "3 sedes" */
 export const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** Tarifa por hora cuando el plan del miembro no cubre el espacio (valores de Billing Service). */
+export const HOURLY_RATE = { ROOM: 50_000, DESK: 15_000 } as const;
+
+export const capitalize = (s: string) => (s ? s[0]!.toUpperCase() + s.slice(1) : s);

@@ -2,11 +2,11 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { api, Desk, Location, Room } from '../../api';
 import { PhotoField } from '../../components/PhotoField';
 import { ServicesPicker } from '../../components/ServicesPicker';
-import { geocode, MapPicker } from '../../components/SitesMap';
+import { GoogleMap, mapQuery } from '../../components/GoogleMap';
 import { Empty, Loading, Notice, PageHead } from '../../components/ui';
 import { EQUIPMENT } from '../../format';
 import { errorText, useLoad } from '../../hooks';
-import { ALL, countryFilter, getCountry, sameCountry } from '../../location';
+import { ALL, countryFilter, geocode, getCountry, sameCountry } from '../../location';
 
 type LocationDetail = Location & { rooms: Room[]; desks: Desk[] };
 type Msg = { tone: 'ok' | 'error'; text: string } | null;
@@ -165,25 +165,26 @@ function LocationForm({
     longitude: initial.longitude ?? null,
   });
   const [busy, setBusy] = useState(false);
-  const [finding, setFinding] = useState(false);
-  const [geoMsg, setGeoMsg] = useState<string | null>(null);
-  const findAddress = async () => {
-    setFinding(true);
-    setGeoMsg(null);
-    try {
-      const found = await geocode([f.address, f.city, f.country].filter(Boolean).join(', '));
-      if (found) setF((prev) => ({ ...prev, latitude: found.lat, longitude: found.lng }));
-      else setGeoMsg('No encontramos esa dirección. Haz clic en el mapa para ubicar la sede.');
-    } catch {
-      setGeoMsg('No se pudo buscar la dirección. Haz clic en el mapa para ubicar la sede.');
-    } finally {
-      setFinding(false);
-    }
-  };
+  // Vista previa del mapa: se actualiza cuando dejas de escribir la dirección
+  const addressText = [f.address, f.city, f.country].map((x) => x.trim()).filter(Boolean).join(', ');
+  const [preview, setPreview] = useState(addressText);
+  useEffect(() => {
+    const t = setTimeout(() => setPreview(addressText), 700);
+    return () => clearTimeout(t);
+  }, [addressText]);
+  const original = [initial.address, initial.city, initial.country].filter(Boolean).join(', ');
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    await onSubmit({ ...f, name: f.name.trim(), description: f.description?.trim() || undefined });
+    let { latitude, longitude } = f;
+    // Coordenadas automáticas (para "la sede más cercana") si la dirección es nueva o cambió
+    if (latitude === null || addressText !== original) {
+      const found = await geocode(addressText).catch(() => null);
+      latitude = found?.lat ?? null;
+      longitude = found?.lng ?? null;
+    }
+    await onSubmit({ ...f, latitude, longitude, name: f.name.trim(), description: f.description?.trim() || undefined });
     setBusy(false);
   };
   return (
@@ -199,22 +200,11 @@ function LocationForm({
         <span>Descripción</span>
         <textarea rows={3} maxLength={500} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="Qué hace especial a esta sede" />
       </label>
-      <fieldset className="services-picker">
-        <legend>Ubicación en el mapa</legend>
-        <div className="form-actions form-actions-start">
-          <button type="button" className="btn btn-ghost" disabled={finding || !f.address || !f.city} onClick={() => void findAddress()}>
-            {finding ? 'Buscando…' : 'Buscar la dirección'}
-          </button>
-          <span className="hint hint-inline">
-            {f.latitude !== null && f.longitude !== null ? `Ubicada: ${f.latitude}, ${f.longitude}` : 'O haz clic en el mapa'}
-          </span>
-        </div>
-        <MapPicker
-          value={f.latitude !== null && f.longitude !== null ? { lat: f.latitude, lng: f.longitude } : null}
-          onChange={(c) => setF((prev) => ({ ...prev, latitude: c.lat, longitude: c.lng }))}
-        />
-        {geoMsg && <p className="hint">{geoMsg}</p>}
-      </fieldset>
+      <div className="field">
+        <span>Así se verá en el mapa</span>
+        <GoogleMap query={preview} zoom={16} title="Vista previa de la ubicación" className="form-map" />
+        <small>Si el punto no coincide, revisa la dirección (por ejemplo: "Cra 7 # 72-41") y la ciudad.</small>
+      </div>
       <ServicesPicker value={f.services} onChange={(services) => setF({ ...f, services })} />
       <label className="check">
         <input type="checkbox" checked={f.isPublished} onChange={(e) => setF({ ...f, isPublished: e.target.checked })} />
@@ -269,9 +259,7 @@ function LocationDetailPanel({ detail, onDone, onError }: { detail: LocationDeta
       </div>
       <PhotoField location={detail} onChanged={(t) => void onDone(t)} />
       {detail.description && <p>{detail.description}</p>}
-      {(detail.latitude === null || detail.latitude === undefined) && (
-        <p className="hint">Esta sede no está ubicada en el mapa. Edítala para agregar su ubicación.</p>
-      )}
+      <GoogleMap query={mapQuery(detail)} title={`Mapa de ${detail.name}`} className="form-map" />
       <div className="chips">
         {detail.services.length === 0 && <span className="hint">Sin servicios publicados.</span>}
         {detail.services.map((s) => <span key={s} className="chip">{s}</span>)}

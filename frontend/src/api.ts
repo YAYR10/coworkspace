@@ -107,7 +107,11 @@ export function refreshSession(): Promise<boolean> {
         setSession(null);
         return false;
       }
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!data?.accessToken || !data?.member) {
+        setSession(null);
+        return false;
+      }
       setSession({ accessToken: data.accessToken, refreshToken: data.refreshToken, member: data.member });
       return true;
     } finally {
@@ -117,7 +121,50 @@ export function refreshSession(): Promise<boolean> {
   return refreshing;
 }
 
+// ---------------------------------------------------------------- servicios dormidos
+/**
+ * En el plan gratuito de Render los servicios se apagan sin tráfico y tardan ~1 min en despertar.
+ * Las lecturas (GET) se reintentan solas durante ese tiempo y la interfaz muestra un aviso discreto.
+ */
+let waking = 0;
+const wakeListeners = new Set<(w: boolean) => void>();
+const setWaking = (delta: number) => {
+  const before = waking > 0;
+  waking = Math.max(0, waking + delta);
+  if (before !== waking > 0) wakeListeners.forEach((fn) => fn(waking > 0));
+};
+export function onWakingChange(fn: (w: boolean) => void) {
+  wakeListeners.add(fn);
+  return () => {
+    wakeListeners.delete(fn);
+  };
+}
+const RETRYABLE = new Set([0, 502, 503, 504]);
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const isRead = !init.method || init.method === 'GET';
+  const deadline = Date.now() + 100_000;
+  let counted = false;
+  try {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await requestOnce<T>(path, init);
+      } catch (err) {
+        if (!isRead || !(err instanceof ApiError) || !RETRYABLE.has(err.status) || Date.now() > deadline) throw err;
+        if (!counted) {
+          counted = true;
+          setWaking(1);
+        }
+        await sleep(Math.min(2000 + attempt * 1500, 6000));
+      }
+    }
+  } finally {
+    if (counted) setWaking(-1);
+  }
+}
+
+async function requestOnce<T>(path: string, init: RequestInit): Promise<T> {
   let res = await send(path, init, true);
   if (res.status === 401 && session && !path.startsWith('/api/auth/')) {
     if (await refreshSession()) res = await send(path, init, true);

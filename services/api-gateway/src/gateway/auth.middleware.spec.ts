@@ -57,4 +57,9 @@ describe('AuthMiddleware', () => {
     expect(res.statusCode).toBe(404);
     expect(next).not.toHaveBeenCalled();
   });
+
+  it('la disponibilidad de un espacio es pública, las reservas no', () => {
+    expect(run({ path: '/api/bookings/availability' }).next).toHaveBeenCalled();
+    expect(run({ path: '/api/bookings/me' }).res.statusCode).toBe(401);
+  });
 });

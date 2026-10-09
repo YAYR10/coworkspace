@@ -1,10 +1,11 @@
+import { link, navigate } from '../router';
 import { useMemo, useState } from 'react';
 import { api, Booking, Desk, Location, Room, WaitlistEntry } from '../api';
 import { Empty, Loading, Notice, PageHead, StatusTag } from '../components/ui';
 import { cancelReason, longDay, time } from '../format';
 import { errorText, useLoad } from '../hooks';
 
-export function BookingsView({ onGoTo }: { onGoTo: (tab: 'reservar') => void }) {
+export function BookingsView() {
   const bookings = useLoad(() => api.get<Booking[]>('/api/bookings/me'));
   const waitlist = useLoad(() => api.get<WaitlistEntry[]>('/api/bookings/waitlist/me'));
   const names = useLoad(async () => {
@@ -54,7 +55,12 @@ export function BookingsView({ onGoTo }: { onGoTo: (tab: 'reservar') => void }) 
         <p className="row-title">{nameOf(b)}</p>
         <p className="row-sub">
           {longDay(b.startTime)}, {time(b.startTime)} a {time(b.endTime)}
-          {names.data?.loc[b.locationId] ? `, ${names.data.loc[b.locationId]}` : ''}
+          {names.data?.loc[b.locationId] && (
+            <>
+              {', '}
+              <a href={link(`/sede/${b.locationId}`)}>{names.data.loc[b.locationId]}</a>
+            </>
+          )}
         </p>
         {b.status === 'CANCELLED' && <p className="row-note">{cancelReason(b.cancelReason)}</p>}
       </div>
@@ -86,7 +92,7 @@ export function BookingsView({ onGoTo }: { onGoTo: (tab: 'reservar') => void }) 
           </div>
           {upcoming.length === 0 ? (
             <Empty title="No tienes reservas próximas">
-              <button className="btn btn-primary" onClick={() => onGoTo('reservar')}>Reservar un espacio</button>
+              <button className="btn btn-primary" onClick={() => navigate('/')}>Buscar un espacio</button>
             </Empty>
           ) : (
             <ul className="rows">{upcoming.map((b) => row(b, true))}</ul>
