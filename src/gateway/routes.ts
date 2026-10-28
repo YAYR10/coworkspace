@@ -12,6 +12,9 @@ export function serviceUrls(env: NodeJS.ProcessEnv = process.env) {
     booking: normalizeUrl(env.BOOKING_SERVICE_URL ?? 'http://localhost:3003'),
     billing: normalizeUrl(env.BILLING_SERVICE_URL ?? 'http://localhost:3004'),
     notification: normalizeUrl(env.NOTIFICATION_SERVICE_URL ?? 'http://localhost:3005'),
+    access: normalizeUrl(env.ACCESS_SERVICE_URL ?? 'http://localhost:3006'),
+    community: normalizeUrl(env.COMMUNITY_SERVICE_URL ?? 'http://localhost:3007'),
+    analytics: normalizeUrl(env.ANALYTICS_SERVICE_URL ?? 'http://localhost:3008'),
   };
 }
 
@@ -29,7 +32,11 @@ export function buildRoutes(env: NodeJS.ProcessEnv = process.env): RouteDefiniti
     { prefix: '/api/bookings', target: s.booking },
     { prefix: '/api/invoices', target: s.billing },
     { prefix: '/api/charges', target: s.billing },
+    { prefix: '/api/payments', target: s.billing },
     { prefix: '/api/notifications', target: s.notification },
+    { prefix: '/api/access', target: s.access },
+    { prefix: '/api/community', target: s.community },
+    { prefix: '/api/analytics', target: s.analytics },
   ];
 }
 
@@ -40,6 +47,11 @@ export const PUBLIC_ROUTES: { method: string; pattern: RegExp }[] = [
   { method: 'GET', pattern: /^\/api\/(locations|rooms|desks)(\/.*)?$/ },
   // Horarios ocupados de un espacio (sin datos de quién reservó): la portada los muestra sin iniciar sesión
   { method: 'GET', pattern: /^\/api\/bookings\/availability\/?$/ },
+  // Próximos eventos de networking de cada sede
+  { method: 'GET', pattern: /^\/api\/community\/events\/?$/ },
+  // Pasarela de pagos: ¿está en sandbox? y webhook que llama Wompi (se valida con firma, no con JWT)
+  { method: 'GET', pattern: /^\/api\/payments\/status\/?$/ },
+  { method: 'POST', pattern: /^\/api\/payments\/wompi\/webhook\/?$/ },
 ];
 
 /** Endpoints internos entre servicios que nunca se exponen hacia afuera. */
