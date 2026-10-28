@@ -3,7 +3,7 @@ import { Empty, Loading, Notice, PageHead } from '../components/ui';
 import { date, money } from '../format';
 import { useLoad } from '../hooks';
 
-const CHARGE: Record<Charge['status'], string> = { APPROVED: 'Aprobado', REJECTED: 'Rechazado', VOIDED: 'Anulado' };
+const CHARGE: Record<Charge['status'], string> = { PENDING: 'Pendiente de pago', APPROVED: 'Aprobado', REJECTED: 'Rechazado', VOIDED: 'Anulado' };
 
 export function BillingView() {
   const invoices = useLoad(() => api.get<Invoice[]>('/api/invoices/me'));

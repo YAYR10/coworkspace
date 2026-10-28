@@ -10,8 +10,14 @@ import { BookingsView } from './views/BookingsView';
 import { HomeView } from './views/HomeView';
 import { MembershipView } from './views/MembershipView';
 import { NotificationsView } from './views/NotificationsView';
+import { PaymentReturnView } from './views/PaymentReturnView';
 import { ProfileView } from './views/ProfileView';
+import { AccessView } from './views/AccessView';
+import { CommunityView } from './views/CommunityView';
 import { SiteView } from './views/SiteView';
+import { AccessDeskView } from './views/staff/AccessDeskView';
+import { AnalyticsView } from './views/staff/AnalyticsView';
+import { EventsAdminView } from './views/staff/EventsAdminView';
 import { FinanceView } from './views/admin/FinanceView';
 import { MailView } from './views/admin/MailView';
 import { OverviewView } from './views/admin/OverviewView';
@@ -30,6 +36,8 @@ interface Section { id: string; label: string }
 
 const ACCOUNT: Section[] = [
   { id: 'reservas', label: 'Mis reservas' },
+  { id: 'acceso', label: 'Mi acceso' },
+  { id: 'comunidad', label: 'Comunidad' },
   { id: 'membresia', label: 'Membresía' },
   { id: 'pagos', label: 'Pagos' },
   { id: 'avisos', label: 'Notificaciones' },
@@ -53,6 +61,9 @@ const PANEL: { title: string; roles: Role[]; items: Section[] }[] = [
     items: [
       { id: 'sedes', label: 'Sedes y servicios' },
       { id: 'ocupacion', label: 'Ocupación' },
+      { id: 'acceso', label: 'Control de acceso' },
+      { id: 'eventos', label: 'Eventos' },
+      { id: 'analitica', label: 'Analítica' },
     ],
   },
 ];
@@ -83,6 +94,8 @@ function Shell() {
   }, [session?.member.id]);
 
   const inApp = route.name === 'account' || route.name === 'panel';
+  // Regreso desde la pasarela de pagos (ruta real /pago, no con #)
+  const paymentReturn = window.location.pathname.replace(/\/$/, '') === '/pago';
 
   return (
     <div className="app">
@@ -93,7 +106,8 @@ function Shell() {
         </p>
       )}
       <main className="app-main">
-        {route.name === 'home' && <HomeView />}
+        {paymentReturn && <PaymentReturnView />}
+        {!paymentReturn && route.name === 'home' && <HomeView />}
         {route.name === 'site' && <SiteView key={route.param} id={route.param!} />}
         {route.name === 'account' && <Account section={route.param!} />}
         {route.name === 'panel' && <Panel section={route.param} />}
@@ -148,6 +162,8 @@ function Account({ section }: { section: string }) {
       <SideLayout groups={[{ title: 'Mi cuenta', items: ACCOUNT }]} current={current} base="/cuenta" />
       <div className="page">
         {current === 'reservas' && <BookingsView />}
+        {current === 'acceso' && <AccessView />}
+        {current === 'comunidad' && <CommunityView />}
         {current === 'membresia' && <MembershipView />}
         {current === 'pagos' && <BillingView />}
         {current === 'avisos' && <NotificationsView />}
@@ -188,6 +204,9 @@ function Panel({ section }: { section?: string }) {
         {current === 'correos' && <MailView />}
         {current === 'sedes' && <LocationsView isAdmin={role === 'ADMIN'} />}
         {current === 'ocupacion' && <OccupancyView isAdmin={role === 'ADMIN'} />}
+        {current === 'acceso' && <AccessDeskView />}
+        {current === 'eventos' && <EventsAdminView />}
+        {current === 'analitica' && <AnalyticsView isAdmin={role === 'ADMIN'} />}
       </div>
     </div>
   );

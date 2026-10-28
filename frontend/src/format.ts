@@ -35,7 +35,7 @@ export const CANCEL_REASONS: Record<string, string> = {
   PAYMENT_REJECTED: 'El cobro fue rechazado',
   CANCELLED_BY_MEMBER: 'La cancelaste tú',
   CANCELLED_BY_STAFF: 'La canceló el equipo de la sede',
-  SAGA_TIMEOUT: 'Facturación no respondió a tiempo',
+  SAGA_TIMEOUT: 'El cobro no se completó a tiempo',
 };
 export const cancelReason = (r?: string | null) => (r ? CANCEL_REASONS[r] ?? r.replace(/_/g, ' ').toLowerCase() : 'Cancelada');
 

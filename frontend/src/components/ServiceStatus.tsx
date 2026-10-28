@@ -7,10 +7,13 @@ const NAMES: Record<string, string> = {
   booking: 'Reservas',
   billing: 'Facturación',
   notification: 'Notificaciones',
+  access: 'Control de acceso',
+  community: 'Comunidad',
+  analytics: 'Analítica',
 };
 /** Servicios sin los que la app no funciona. Notificaciones es asíncrono: si tarda, la app igual abre. */
 const CORE = ['membership', 'space', 'booking', 'billing'];
-const ORDER = [...CORE, 'notification'];
+const ORDER = [...CORE, 'notification', 'access', 'community', 'analytics'];
 
 export const allUp = (r: HealthReport | null) => !!r && CORE.every((k) => r[k]?.status === 'up');
 
@@ -38,8 +41,8 @@ export function StatusChip() {
     return () => document.removeEventListener('mousedown', close);
   }, [open]);
 
-  // Si el gateway aún no conoce Notificaciones (despliegue anterior), se muestran solo los 4 principales
-  const shown = report && !report.notification ? CORE : ORDER;
+  // Se muestran los servicios que el gateway conoce (un despliegue anterior puede no tener los nuevos)
+  const shown = report ? ORDER.filter((k) => CORE.includes(k) || report[k]) : ORDER;
   const up = shown.filter((k) => report?.[k]?.status === 'up').length;
   return (
     <div className="status" ref={ref}>

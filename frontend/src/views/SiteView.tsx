@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { api, ApiError, Booking, BusySlot, Desk, Location, Me, ResourceType, Room } from '../api';
+import { api, ApiError, Booking, BusySlot, CommunityEvent, Desk, Location, Me, ResourceType, Room } from '../api';
 import { useAuth } from '../components/Auth';
 import { directionsUrl, GoogleMap, mapQuery, mapsUrl } from '../components/GoogleMap';
 import { CLOSE_HOUR, HourPicker, nextRange, Range } from '../components/HourPicker';
@@ -9,6 +9,7 @@ import { SagaTracker } from '../components/SagaTracker';
 import { Loading, Notice } from '../components/ui';
 import { atHour, capitalize, EQUIPMENT, HOURLY_RATE, hourLabel, longDay, money, plural, sameDay, startOfDay } from '../format';
 import { errorText, useLoad, useSession } from '../hooks';
+import { EventList } from './CommunityView';
 import { link, navigate } from '../router';
 
 type Detail = Location & { rooms: Room[]; desks: Desk[] };
@@ -25,6 +26,8 @@ export function SiteView({ id }: { id: string }) {
   const { requireLogin } = useAuth();
   const site = useLoad(() => api.get<Detail>(`/api/locations/${id}`), [id]);
   const me = useLoad(async () => (session ? api.get<Me>('/api/members/me') : null), [session?.member.id]);
+  // Eventos de networking de la sede (Community Service). Si el servicio no responde, la sección no aparece.
+  const events = useLoad(() => api.get<CommunityEvent[]>(`/api/community/events?locationId=${id}`).catch(() => [] as CommunityEvent[]), [id]);
 
   const spaces = useMemo<Space[]>(() => {
     const d = site.data;
@@ -225,6 +228,16 @@ export function SiteView({ id }: { id: string }) {
               </>
             )}
           </section>
+
+          {events.data && events.data.length > 0 && (
+            <section className="site-section">
+              <h2>Próximos eventos en esta sede</h2>
+              <EventList events={events.data.slice(0, 4)} />
+              <p className="hint">
+                Los miembros se inscriben desde <a href={link('/cuenta/comunidad')}>Comunidad</a>.
+              </p>
+            </section>
+          )}
 
           <section className="site-section">
             <h2>Ubicación</h2>
