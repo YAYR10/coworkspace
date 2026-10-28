@@ -1,0 +1,48 @@
+# CI de este microservicio cuando vive en su propio repositorio.
+# (En el monorepo coworkspace lo ejecuta .github/workflows/ci-cd.yml.)
+name: CI community-service
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run lint
+      - run: npm test -- --ci
+      - run: npm run build
+
+  image:
+    needs: test
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/yayr10/coworkspace-community-service:latest
+      - name: Desplegar en Render
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: if [ -n "$HOOK" ]; then curl -fsS -X POST "$HOOK"; else echo "Sin RENDER_DEPLOY_HOOK"; fi
