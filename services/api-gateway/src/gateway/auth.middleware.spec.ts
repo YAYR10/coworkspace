@@ -1,5 +1,6 @@
 import * as jwt from 'jsonwebtoken';
 import { createAuthMiddleware } from './auth.middleware';
+import { buildRoutes } from './routes';
 
 const SECRET = 'test-secret';
 
@@ -61,5 +62,24 @@ describe('AuthMiddleware', () => {
   it('la disponibilidad de un espacio es pública, las reservas no', () => {
     expect(run({ path: '/api/bookings/availability' }).next).toHaveBeenCalled();
     expect(run({ path: '/api/bookings/me' }).res.statusCode).toBe(401);
+  });
+
+  it('eventos de la comunidad y webhook de pagos son públicos; acceso, mensajes y analítica no', () => {
+    expect(run({ path: '/api/community/events' }).next).toHaveBeenCalled();
+    expect(run({ method: 'POST', path: '/api/payments/wompi/webhook' }).next).toHaveBeenCalled();
+    expect(run({ method: 'POST', path: '/api/access/validate' }).res.statusCode).toBe(401);
+    expect(run({ path: '/api/community/messages' }).res.statusCode).toBe(401);
+    expect(run({ path: '/api/analytics/summary' }).res.statusCode).toBe(401);
+  });
+});
+
+describe('Tabla de enrutamiento', () => {
+  it('cada prefijo apunta a su microservicio dueño', () => {
+    const routes = buildRoutes({});
+    const target = (p: string) => routes.find((r) => r.prefix === p)?.target;
+    expect(target('/api/access')).toBe('http://localhost:3006');
+    expect(target('/api/community')).toBe('http://localhost:3007');
+    expect(target('/api/analytics')).toBe('http://localhost:3008');
+    expect(target('/api/payments')).toBe('http://localhost:3004');
   });
 });

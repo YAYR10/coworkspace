@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [api-gateway, membership-service, space-service, booking-service, billing-service, notification-service]
+        service: [api-gateway, membership-service, space-service, booking-service, billing-service, notification-service, access-control-service, community-service, analytics-service]
     defaults:
       run:
         working-directory: services/${{ matrix.service }}
@@ -79,7 +79,7 @@ jobs:
       packages: write
     strategy:
       matrix:
-        service: [api-gateway, membership-service, space-service, booking-service, billing-service, notification-service]
+        service: [api-gateway, membership-service, space-service, booking-service, billing-service, notification-service, access-control-service, community-service, analytics-service]
     steps:
       - uses: actions/checkout@v4
       - name: Nombre de imagen en minúsculas
@@ -119,6 +119,12 @@ jobs:
             hook: RENDER_DEPLOY_HOOK_BILLING
           - service: notification-service
             hook: RENDER_DEPLOY_HOOK_NOTIFICATION
+          - service: access-control-service
+            hook: RENDER_DEPLOY_HOOK_ACCESS
+          - service: community-service
+            hook: RENDER_DEPLOY_HOOK_COMMUNITY
+          - service: analytics-service
+            hook: RENDER_DEPLOY_HOOK_ANALYTICS
           - service: api-gateway
             hook: RENDER_DEPLOY_HOOK_GATEWAY
     steps:

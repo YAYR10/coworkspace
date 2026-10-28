@@ -82,6 +82,8 @@ services:
         value: https://coworkspace-space.onrender.com
       - key: SPACE_TIMEOUT_MS
         value: "60000"
+      - key: SAGA_TIMEOUT_MINUTES     # tiempo para pagar en la pasarela antes de liberar el horario
+        value: "20"
 
   - type: web
     name: coworkspace-billing
@@ -102,6 +104,15 @@ services:
         fromService: { type: keyvalue, name: coworkspace-redis, property: connectionString }
       - key: EXTRA_CHARGE_APPROVAL_LIMIT
         value: "200000"
+      # Pasarela de pagos Wompi (sandbox). Sin estas llaves se usa la pasarela simulada.
+      - key: WOMPI_PUBLIC_KEY         # pub_test_...
+        sync: false
+      - key: WOMPI_INTEGRITY_SECRET   # test_integrity_...
+        sync: false
+      - key: WOMPI_EVENTS_SECRET      # test_events_...
+        sync: false
+      - key: PAYMENT_REDIRECT_URL
+        value: https://coworkspace-web.onrender.com/pago
 
   # Quinto microservicio: escucha eventos (Redis Streams) y envía correos.
   # Sin BREVO_API_KEY funciona en modo demostración (guarda los correos sin enviarlos).
@@ -135,6 +146,73 @@ services:
       - key: MAIL_FROM                # opcional: correo remitente verificado en Brevo
         sync: false
 
+  # Control de acceso físico: credenciales QR/NFC y validación en la puerta de cada sede.
+  - type: web
+    name: coworkspace-access
+    runtime: image
+    image:
+      url: ghcr.io/yayr10/coworkspace-access-control-service:latest
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - fromGroup: coworkspace-shared
+      - key: SERVICE_NAME
+        value: access-control-service
+      - key: DB_SCHEMA
+        value: access
+      - key: DATABASE_URL
+        fromDatabase: { name: coworkspace-db, property: connectionString }
+      - key: REDIS_URL
+        fromService: { type: keyvalue, name: coworkspace-redis, property: connectionString }
+      - key: MEMBERSHIP_SERVICE_URL
+        value: https://coworkspace-membership.onrender.com
+      - key: ACCESS_QR_TTL_SECONDS
+        value: "120"
+
+  # Comunidad: directorio de miembros, eventos de networking y mensajería interna.
+  - type: web
+    name: coworkspace-community
+    runtime: image
+    image:
+      url: ghcr.io/yayr10/coworkspace-community-service:latest
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - fromGroup: coworkspace-shared
+      - key: SERVICE_NAME
+        value: community-service
+      - key: DB_SCHEMA
+        value: community
+      - key: DATABASE_URL
+        fromDatabase: { name: coworkspace-db, property: connectionString }
+      - key: REDIS_URL
+        fromService: { type: keyvalue, name: coworkspace-redis, property: connectionString }
+      - key: MEMBERSHIP_SERVICE_URL
+        value: https://coworkspace-membership.onrender.com
+
+  # Analítica: ETL periódico (solo lectura) sobre las bases de los demás servicios.
+  - type: web
+    name: coworkspace-analytics
+    runtime: image
+    image:
+      url: ghcr.io/yayr10/coworkspace-analytics-service:latest
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - fromGroup: coworkspace-shared
+      - key: SERVICE_NAME
+        value: analytics-service
+      - key: DB_SCHEMA
+        value: analytics
+      - key: DATABASE_URL
+        fromDatabase: { name: coworkspace-db, property: connectionString }
+      - key: REDIS_URL
+        fromService: { type: keyvalue, name: coworkspace-redis, property: connectionString }
+      - key: SOURCE_DATABASE_URL      # en producción: la URL de la réplica de lectura
+        fromDatabase: { name: coworkspace-db, property: connectionString }
+      - key: ANALYTICS_TZ
+        value: America/Bogota
+
   - type: web
     name: coworkspace-gateway
     runtime: image
@@ -154,6 +232,12 @@ services:
         value: https://coworkspace-billing.onrender.com
       - key: NOTIFICATION_SERVICE_URL
         value: https://coworkspace-notification.onrender.com
+      - key: ACCESS_SERVICE_URL
+        value: https://coworkspace-access.onrender.com
+      - key: COMMUNITY_SERVICE_URL
+        value: https://coworkspace-community.onrender.com
+      - key: ANALYTICS_SERVICE_URL
+        value: https://coworkspace-analytics.onrender.com
       - key: CORS_ORIGIN              # URL del frontend en Vercel
         sync: false
 
@@ -176,4 +260,8 @@ services:
       - type: rewrite
         source: /health/*
         destination: https://coworkspace-gateway.onrender.com/health/*
+      # Página a la que vuelve la pasarela de pagos después de pagar
+      - type: rewrite
+        source: /pago
+        destination: /index.html
 

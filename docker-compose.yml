@@ -72,6 +72,11 @@ services:
       SERVICE_NAME: billing-service
       DB_SCHEMA: billing
       EXTRA_CHARGE_APPROVAL_LIMIT: 200000
+      # Opcional: llaves sandbox de Wompi (sin ellas se usa la pasarela simulada)
+      WOMPI_PUBLIC_KEY: ${WOMPI_PUBLIC_KEY:-}
+      WOMPI_INTEGRITY_SECRET: ${WOMPI_INTEGRITY_SECRET:-}
+      WOMPI_EVENTS_SECRET: ${WOMPI_EVENTS_SECRET:-}
+      PAYMENT_REDIRECT_URL: http://localhost:5173/pago
     depends_on: *depends
 
   notification-service:
@@ -89,6 +94,38 @@ services:
       APP_URL: http://localhost:5173
     depends_on: *depends
 
+  access-control-service:
+    build: ./services/access-control-service
+    environment:
+      <<: *common-env
+      PORT: 3006
+      SERVICE_NAME: access-control-service
+      DB_SCHEMA: access
+      MEMBERSHIP_SERVICE_URL: http://membership-service:3001
+      ACCESS_QR_TTL_SECONDS: 120
+    depends_on: *depends
+
+  community-service:
+    build: ./services/community-service
+    environment:
+      <<: *common-env
+      PORT: 3007
+      SERVICE_NAME: community-service
+      DB_SCHEMA: community
+      MEMBERSHIP_SERVICE_URL: http://membership-service:3001
+    depends_on: *depends
+
+  analytics-service:
+    build: ./services/analytics-service
+    environment:
+      <<: *common-env
+      PORT: 3008
+      SERVICE_NAME: analytics-service
+      DB_SCHEMA: analytics
+      # Réplica de solo lectura de las bases de los demás servicios (aquí, la misma instancia)
+      SOURCE_DATABASE_URL: postgresql://cowork:cowork@postgres:5432/coworkspace
+    depends_on: *depends
+
   api-gateway:
     build: ./services/api-gateway
     ports: ["3000:3000"]
@@ -102,7 +139,10 @@ services:
       BOOKING_SERVICE_URL: http://booking-service:3003
       BILLING_SERVICE_URL: http://billing-service:3004
       NOTIFICATION_SERVICE_URL: http://notification-service:3005
-    depends_on: [membership-service, space-service, booking-service, billing-service, notification-service]
+      ACCESS_SERVICE_URL: http://access-control-service:3006
+      COMMUNITY_SERVICE_URL: http://community-service:3007
+      ANALYTICS_SERVICE_URL: http://analytics-service:3008
+    depends_on: [membership-service, space-service, booking-service, billing-service, notification-service, access-control-service, community-service, analytics-service]
 
   prometheus:
     image: prom/prometheus:v2.54.1
