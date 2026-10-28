@@ -1,68 +1,82 @@
 # CoworkSpace – Plataforma de gestión de espacios de coworking
 
-Implementación de los 4 microservicios del documento del proyecto, un quinto servicio de notificaciones, el API Gateway y una aplicación web.
+Red de espacios de coworking construida con **8 microservicios**, un API Gateway y una aplicación web. Cada microservicio tiene su propio README, su `.env.example` y sus scripts de base de datos en `services/<servicio>/`.
 
-| Servicio | Puerto local | Responsabilidad | Schema BD |
-|---|---|---|---|
-| **api-gateway** | 3000 | Enrutamiento, autenticación JWT, rate limiting | – |
-| **membership-service** | 3001 | Miembros, login/refresh tokens, planes, suscripciones y renovación automática | `membership` |
-| **space-service** | 3002 | Sedes, salas, puestos, equipamiento (con caché Redis) | `space` |
-| **booking-service** | 3003 | Reservas en tiempo real con **bloqueo optimista**, lista de espera, saga | `booking` |
-| **billing-service** | 3004 | Cobro recurrente, cargos adicionales, factura electrónica (simulada), saga | `billing` |
-| **notification-service** | 3005 | Correos por eventos (reserva confirmada/cancelada, plan activo/vencido) vía Redis Streams | `notification` |
-| **frontend** | 5173 | Aplicación web (React): paneles de administrador, coordinador y miembro | – |
+| Servicio | Puerto | Responsabilidad | Schema BD | Despliegue |
+|---|---|---|---|---|
+| [api-gateway](services/api-gateway) | 3000 | Enrutamiento, JWT, rate limiting | – | https://coworkspace-gateway.onrender.com/health/services |
+| [membership-service](services/membership-service) | 3001 | Miembros, login/refresh, planes, suscripciones y renovación | `membership` | https://coworkspace-membership.onrender.com/health |
+| [space-service](services/space-service) | 3002 | Sedes, salas, puestos, fotos y mapa (caché Redis) | `space` | https://coworkspace-space.onrender.com/health |
+| [booking-service](services/booking-service) | 3003 | Reservas con **bloqueo optimista**, lista de espera, saga | `booking` | https://coworkspace-booking.onrender.com/health |
+| [billing-service](services/billing-service) | 3004 | Cobro recurrente, factura electrónica, cargos adicionales, **pasarela Wompi** | `billing` | https://coworkspace-billing.onrender.com/health |
+| [notification-service](services/notification-service) | 3005 | Correos por eventos, recordatorios y avisos de vencimiento (Brevo) | `notification` | https://coworkspace-notification.onrender.com/health |
+| [access-control-service](services/access-control-service) | 3006 | Credenciales QR/NFC de corta duración y validación en la puerta | `access` | https://coworkspace-access.onrender.com/health |
+| [community-service](services/community-service) | 3007 | Directorio de miembros, mensajería y eventos de networking | `community` | https://coworkspace-community.onrender.com/health |
+| [analytics-service](services/analytics-service) | 3008 | ETL de solo lectura y KPIs de ocupación, ingresos y retención | `analytics` | https://coworkspace-analytics.onrender.com/health |
+| [frontend](frontend) | 5173 | Aplicación web (React) | – | https://coworkspace-web.onrender.com |
 
-**Stack:** NestJS · React · Prisma · PostgreSQL · Redis (Pub/Sub, Streams y caché) · Leaflet/OpenStreetMap · Brevo · Docker · GitHub Actions · GHCR · Render · k6 · Prometheus/Grafana.
+**Stack:** NestJS · React · Prisma · PostgreSQL · Redis (Pub/Sub, Streams y caché) · Google Maps · Wompi (sandbox) · Brevo · Docker · GitHub Actions · GHCR · Render · k6 · Prometheus/Grafana.
+
+**Integraciones externas:** pasarela de pagos **Wompi** (sandbox), correo transaccional **Brevo** (API HTTP), mapas de **Google Maps** (embed) y geocodificación con **Nominatim/OpenStreetMap**, geolocalización del navegador para mostrar las sedes del país del usuario, y lectura de QR con la cámara (`BarcodeDetector`).
 
 ## Arquitectura
 
 ```mermaid
 flowchart LR
-  App[App / Panel admin] -->|HTTPS + JWT| GW[API Gateway]
+  App[Aplicación web] -->|HTTPS + JWT| GW[API Gateway]
   GW --> MS[Membership]
   GW --> SS[Space]
   GW --> BS[Booking]
   GW --> BL[Billing]
-  BS -- REST síncrono --> SS
-  MS -. membership.activated / expired .-> R[(Redis Pub/Sub)]
-  BS -. booking.created / cancelled / confirmed .-> R
-  BL -. billing.charge.approved / rejected .-> R
-  R -.-> BL
-  R -.-> BS
-  R -. Redis Stream coworkspace:events .-> NS[Notification]
-  NS -- REST: contacto del miembro --> MS
-  NS -- REST: nombre del espacio --> SS
-  NS -- HTTPS --> Brevo[(Brevo: correo)]
+  GW --> NS[Notification]
+  GW --> AC[Access Control]
+  GW --> CS[Community]
+  GW --> AN[Analytics]
+  BS -- REST --> SS
+  AC -- REST: ¿membresía vigente? --> MS
+  CS -- REST: ¿membresía vigente? --> MS
+  NS -- REST: contacto / espacio --> MS & SS
+  MS & BS & BL -. eventos .-> R[(Redis Pub/Sub + Stream)]
+  R -.-> BS & BL & NS & AC
+  AN -- solo lectura (ETL) --> DB[(Réplica PostgreSQL)]
+  BL -- checkout / webhook --> Wompi[(Wompi)]
+  NS -- HTTPS --> Brevo[(Brevo)]
 ```
 
-### Notification Service (correos)
-- Cada evento de dominio se publica en Pub/Sub **y** se copia en el Redis Stream `coworkspace:events`.
-- El Notification Service lee el stream con un **grupo de consumidores** (`XREADGROUP` + `XACK`): si estaba dormido (plan free de Render), procesa los eventos pendientes al despertar, cosa que Pub/Sub no permite.
-- Es **idempotente**: guarda el `id` de cada evento y nunca envía dos veces el mismo correo.
-- Envía por la API HTTP de **Brevo** (gratis, 300 correos/día). Render free bloquea los puertos SMTP, por eso no se usa SMTP.
-- **Modo demostración:** sin `BREVO_API_KEY`, los correos se generan y se guardan (se ven en *Administración → Correos* y en *Notificaciones* de cada usuario) pero no se envían.
-- Para activar el envío real: crea una cuenta en brevo.com, verifica un remitente (*Senders*), crea una clave en *SMTP & API → API Keys* y en Render, en `coworkspace-notification` → *Environment*, define `BREVO_API_KEY` y `MAIL_FROM` (el remitente verificado).
-
 ### Comunicación entre servicios
-- **Síncrona (REST):** Booking consulta a Space (`GET /resources/:type/:id`, cacheado en Redis) antes de reservar.
-- **Asíncrona (eventos Redis Pub/Sub):**
+
+**Síncrona (REST, con `x-internal-key`):** Booking → Space (recurso a reservar) · Access Control y Community → Membership (`GET /subscriptions/member/:id/active`) · Notification → Membership y Space (datos del correo).
+
+**Asíncrona (Redis Pub/Sub + copia en el Redis Stream `coworkspace:events`):**
 
 | Evento | Publica | Consume |
 |---|---|---|
-| `membership.activated` | Membership | Billing (factura del periodo) |
-| `membership.expired` | Membership | Billing |
+| `membership.activated` | Membership | Billing (factura del periodo), Access Control (habilita el acceso), Notification (bienvenida y aviso de vencimiento programado) |
+| `membership.expired` | Membership | Billing, **Access Control (revoca las credenciales)**, Notification |
 | `booking.created` | Booking | Billing (paso 2 de la saga) |
-| `billing.charge.approved` | Billing | Booking (confirma) |
-| `billing.charge.rejected` | Billing | Booking (**compensación**: libera la reserva) |
-| `booking.cancelled` | Booking | Billing (anula el cargo) |
-| `booking.confirmed`, `booking.waitlist.promoted`, `billing.invoice.*` | Booking / Billing | (Notification Service futuro) |
+| `billing.charge.approved` / `rejected` | Billing | Booking (confirma o **compensa**) |
+| `billing.charge.pending` | Billing | (el miembro paga en Wompi) |
+| `booking.confirmed` / `cancelled` | Booking | Billing (anula el cargo), Notification (correo + recordatorio) |
+| `booking.waitlist.promoted` | Booking | Notification |
+
+Los consumidores que usan el Stream (Notification, Access Control) leen con grupo de consumidores (`XREADGROUP` + `XACK`): si estaban dormidos en Render, procesan lo pendiente al despertar.
+
+### Access Control (acceso físico)
+- El miembro abre **Mi acceso** y ve un QR con un token `cw1.<credencial>.<secreto>` que vive 2 minutos y se renueva solo; el anterior deja de servir. La base solo guarda el hash SHA-256.
+- Recepción (**Panel → Control de acceso**) escanea el QR con la cámara o pega el código. La validación busca por llave primaria, compara el hash en tiempo constante y consulta la proyección local de la membresía: responde en pocos milisegundos y queda en la bitácora `access_log`.
+- Al recibir `membership.expired` revoca todas las credenciales del miembro.
+
+### Analytics (KPIs)
+ETL cada 30 minutos (y bajo demanda) que lee las bases de Membership, Space, Booking y Billing con una conexión de **solo lectura** (`default_transaction_read_only=on`; en producción, `SOURCE_DATABASE_URL` apunta a la réplica de lectura) y guarda en su schema: `occupancy_by_location` (sede × día × franja horaria), `revenue_by_plan` (plan × mes) y `member_retention` (cohortes).
 
 ### Patrón Saga coreografiada – "reserva de sala con cargo adicional"
 1. Booking crea la reserva en `PENDING` y publica `booking.created`.
-2. Billing revisa el plan del miembro: si el recurso está incluido → `approved` con monto 0; si no, cobra `horas × tarifa`.
+2. Billing revisa el plan del miembro: si el recurso está incluido → `approved` con monto 0; si no, el cargo es `horas × tarifa`.
+   - **Con Wompi configurado:** el cargo queda `PENDING` y el miembro paga en el checkout de Wompi (sandbox). Billing confirma el resultado consultando la transacción al volver (`/pago?id=…`) y por el webhook firmado; publica `approved` o `rejected`.
+   - **Sin llaves de Wompi:** pasarela simulada con cupo de `EXTRA_CHARGE_APPROVAL_LIMIT`.
 3. Si el cobro se aprueba → Booking pasa la reserva a `CONFIRMED`.
 4. Si se rechaza → Booking la pasa a `CANCELLED (PAYMENT_REJECTED)` y la lista de espera se promueve automáticamente.
-5. Si Billing nunca responde, un cron cancela las reservas `PENDING` tras `SAGA_TIMEOUT_MINUTES` (por defecto 5).
+5. Si el cobro no se completa, un cron cancela las reservas `PENDING` tras `SAGA_TIMEOUT_MINUTES` (20 en Render, para dar tiempo de pagar).
 
 ### Bloqueo optimista (sin dobles reservas)
 Cada recurso tiene una fila `resource_locks(resource_id, version)`. Al reservar se lee la versión, se verifica que no haya solapamiento y, dentro de una transacción, se ejecuta `UPDATE ... SET version = version + 1 WHERE version = <leída>`. Si otra reserva concurrente ganó, el `UPDATE` afecta 0 filas, se reintenta y el reintento detecta el solapamiento (409). La prueba k6 lanza 50 reservas simultáneas sobre la misma sala y exige que exactamente una gane.
@@ -88,10 +102,22 @@ Se crea automáticamente el admin `admin@coworkspace.co` / `Admin12345!` y los 4
 
 ### Pruebas
 ```bash
-cd services/booking-service
+cd services/<servicio>
 npm ci && npx prisma generate
 npm run lint && npm test
 ```
+El pipeline de GitHub Actions corre lint, Jest y build de los 9 servicios en paralelo, la prueba de carga k6 del Booking Service con todo el sistema levantado, y luego publica y despliega las imágenes.
+
+### Base de datos: scripts, datos de ejemplo y respaldo
+Cada servicio tiene en `db/`: `01_schema.sql` (esquema generado desde Prisma), `02_seed.sql` (datos de ejemplo idempotentes) y `03_backup.sql` (respaldo `pg_dump`). El workflow **Scripts de base de datos** (`scripts/db-scripts.sh`) los regenera, carga todo en un PostgreSQL limpio, corre el ETL de Analytics sobre esos datos y guarda los archivos.
+
+Cargar todo a mano en una base vacía:
+```bash
+for s in membership space booking billing notification access-control community analytics; do
+  psql "$DATABASE_URL" -f services/$s-service/db/01_schema.sql -f services/$s-service/db/02_seed.sql
+done
+```
+Usuarios de ejemplo (contraseña `Demo12345!`): `admin.demo@coworkspace.co` (administrador), `coordinador@coworkspace.co`, `ana@demo.co`, `carlos@demo.co` (miembros con plan) y `mariana@demo.co` (plan vencido).
 
 Carga con k6 (con el stack arriba): `k6 run load-tests/booking-peak.js`
 
@@ -132,51 +158,30 @@ curl -s $API/invoices/me -H "Authorization: Bearer $TOKEN"
 
 | Rol | Vista en la web | Qué puede hacer |
 |---|---|---|
-| **Administrador** (jefe) | Panel de administración | Todo: resumen del negocio, usuarios y roles, planes y precios, facturación de todos, más todo lo del coordinador y del miembro |
-| **Coordinador** | Panel de coordinación | Crear, editar, publicar u ocultar sedes con sus servicios; crear salas y puestos; ver la ocupación y cancelar reservas. No gestiona usuarios, planes ni facturación |
-| **Miembro** | Panel de miembro | Elegir país (con la ubicación del navegador), ver sedes de ese país, reservar, ver sus reservas, membresía, pagos y su perfil |
+| **Administrador** (jefe) | Panel de administración | Todo: resumen, usuarios y roles, planes y precios, facturación, correos, ingresos en Analítica, más todo lo del coordinador y del miembro |
+| **Coordinador** | Panel de coordinación | Sedes y servicios, salas y puestos, ocupación, control de acceso en la puerta, eventos de networking y analítica de ocupación/retención. No gestiona usuarios, planes ni facturación |
+| **Miembro** | Mi cuenta | Buscar sedes de su país, reservar y pagar con Wompi, Mi acceso (QR), Comunidad (directorio, eventos, mensajes), membresía, pagos, notificaciones y perfil |
 
 El primer administrador se crea con `ADMIN_EMAIL` / `ADMIN_PASSWORD`. Después, el administrador asigna roles desde **Usuarios y roles** (no puede cambiar su propio rol y siempre queda al menos un administrador). Los permisos se validan en cada microservicio, no solo en la interfaz.
 
-## Endpoints (a través del Gateway, prefijo `/api`)
+## Endpoints
 
-| Método | Ruta | Auth |
-|---|---|---|
-| POST | `/auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout` | pública |
-| GET / PATCH | `/members/me` (perfil: nombre, teléfono, país, ciudad) | miembro |
-| POST | `/members/me/password` | miembro |
-| GET · PATCH | `/members?q=&role=` · `/members/:id/role` | admin |
-| GET · POST / PATCH | `/plans` · `/plans`, `/plans/:id` | pública · admin |
-| POST | `/subscriptions` · GET `/subscriptions/me` | miembro |
-| POST | `/subscriptions/:id/cancel` (desactiva renovación) | miembro |
-| POST | `/subscriptions/:id/expire`, `/subscriptions/renewals/run` | admin |
-| GET | `/locations?country=&city=`, `/locations/countries`, `/locations/:id` | pública (`?all=true` incluye ocultas para coordinador/admin) |
-| POST / PATCH | `/locations`, `/locations/:id` (servicios, publicar/ocultar) | coordinador / admin |
-| GET · POST / PATCH | `/rooms?country=&locationId=&minCapacity=&equipment=projector` · `/rooms`, `/rooms/:id` | pública · coordinador / admin |
-| GET · POST / PATCH | `/desks?country=&locationId=` · `/desks`, `/desks/:id` | pública · coordinador / admin |
-| POST | `/bookings` · GET `/bookings/me` · GET `/bookings/:id` | miembro |
-| GET | `/bookings?from=&to=&locationId=&status=` (ocupación) | coordinador / admin |
-| GET | `/bookings/availability?resourceId=&from=&to=` | miembro |
-| PATCH | `/bookings/:id/cancel` | dueño · coordinador / admin |
-| POST / GET | `/bookings/waitlist`, `/bookings/waitlist/me` | miembro |
-| GET | `/invoices/me`, `/charges/me` · `/invoices`, `/charges` | miembro · admin |
-
-Cada servicio expone además `GET /health` y `GET /metrics` (Prometheus).
+La lista completa (método, ruta, quién puede usarla) está en el README de cada microservicio. Todos se consumen por el Gateway con el prefijo `/api`; cada servicio expone además `GET /health` y `GET /metrics` (Prometheus).
 
 ## Despliegue (GitHub Actions → GHCR → Render)
 
-1. **Sube el repo a GitHub** (rama `main`). El workflow `.github/workflows/ci-cd.yml` corre lint, tests, la prueba k6 y publica las 5 imágenes en `ghcr.io/<tu-usuario>/coworkspace-<servicio>`.
+1. **Sube el repo a GitHub** (rama `main`). El workflow `.github/workflows/ci-cd.yml` corre lint, tests, la prueba k6 y publica las 9 imágenes en `ghcr.io/<tu-usuario>/coworkspace-<servicio>`.
 2. **Haz públicas las imágenes:** en GitHub → tu perfil → *Packages* → cada paquete → *Package settings* → *Change visibility* → Public. (O configura una credencial de registro en Render.)
-3. **Crea la infraestructura en Render:** edita `render.yaml` y cambia `TU_USUARIO_GITHUB` por tu usuario en minúsculas. En Render: *New → Blueprint* → selecciona el repo. Esto crea la BD PostgreSQL, Redis (Key Value), los 5 servicios y los secretos compartidos.
+3. **Crea la infraestructura en Render:** en Render: *New → Blueprint* → selecciona el repo. Esto crea la BD PostgreSQL, Redis (Key Value), los 9 servicios, el sitio web y los secretos compartidos.
 4. **Completa las variables marcadas `sync: false`** que Render te pedirá:
    - `ADMIN_EMAIL`, `ADMIN_PASSWORD` (membership).
-   - `SPACE_SERVICE_URL` en booking y las 4 `*_SERVICE_URL` en el gateway, con las URLs `https://coworkspace-xxx.onrender.com` de cada servicio.
-5. **Deploy automático:** en cada servicio de Render → *Settings* → *Deploy Hook*, copia la URL y guárdala en GitHub → *Settings → Secrets and variables → Actions* como `RENDER_DEPLOY_HOOK_MEMBERSHIP`, `RENDER_DEPLOY_HOOK_SPACE`, `RENDER_DEPLOY_HOOK_BOOKING`, `RENDER_DEPLOY_HOOK_BILLING`, `RENDER_DEPLOY_HOOK_GATEWAY`. Desde ese momento cada push a `main` despliega la imagen del commit.
+   - Opcionales: `BREVO_API_KEY`, `MAIL_FROM` (notification) y `WOMPI_PUBLIC_KEY`, `WOMPI_INTEGRITY_SECRET`, `WOMPI_EVENTS_SECRET` (billing; llaves de prueba de comercios.wompi.co → *Desarrolladores*). En Wompi, configura la URL de eventos `https://coworkspace-web.onrender.com/api/payments/wompi/webhook`.
+5. **Deploy automático:** en cada servicio de Render → *Settings* → *Deploy Hook*, copia la URL y guárdala en GitHub → *Settings → Secrets and variables → Actions* como `RENDER_DEPLOY_HOOK_MEMBERSHIP`, `_SPACE`, `_BOOKING`, `_BILLING`, `_NOTIFICATION`, `_ACCESS`, `_COMMUNITY`, `_ANALYTICS` y `_GATEWAY`. Desde ese momento cada push a `main` despliega la imagen del commit.
 6. Verifica: `https://coworkspace-gateway.onrender.com/health/services`.
 
 ### Notas sobre el plan gratuito de Render
 - Los servicios free se **duermen** tras un rato sin tráfico y tardan cerca de un minuto en despertar. Antes de la demo abre `/health/services` para despertarlos todos.
-- Mientras un servicio duerme no recibe eventos de Redis Pub/Sub (no hay persistencia de mensajes). Por eso existe el timeout de la saga, y en producción se usaría Redis Streams, RabbitMQ o Kafka.
+- Mientras un servicio duerme no recibe eventos de Redis Pub/Sub. Por eso Notification y Access Control leen el Redis Stream (procesan lo pendiente al despertar) y la saga tiene timeout.
 - Las redes privadas completas (servicios `pserv`) requieren plan pago; por eso los servicios se comunican por URL pública protegida con `INTERNAL_API_KEY`.
 - La BD usa un schema por servicio dentro de una sola instancia PostgreSQL (el plan free permite una sola BD). Cada servicio solo accede a su schema.
 
@@ -191,6 +196,11 @@ Cada servicio expone además `GET /health` y `GET /metrics` (Prometheus).
 | `OPTIMISTIC_LOCK_MAX_RETRIES`, `MAX_BOOKING_HOURS`, `SAGA_TIMEOUT_MINUTES` | booking | `5`, `12`, `5` |
 | `EXTRA_ROOM_HOURLY_RATE`, `EXTRA_DESK_HOURLY_RATE` | billing | `50000`, `15000` |
 | `EXTRA_CHARGE_APPROVAL_LIMIT`, `PAYMENT_FORCE_REJECT` | billing | `200000`, `false` |
+| `WOMPI_PUBLIC_KEY`, `WOMPI_INTEGRITY_SECRET`, `WOMPI_EVENTS_SECRET` | billing | vacías (pasarela simulada) |
+| `BREVO_API_KEY`, `MAIL_FROM`, `REMINDER_MINUTES_BEFORE`, `MEMBERSHIP_WARNING_DAYS` | notification | vacías (modo demostración), `60`, `3` |
+| `ACCESS_QR_TTL_SECONDS`, `ACCESS_NFC_TTL_DAYS` | access-control | `120`, `30` |
+| `MEMBERSHIP_CACHE_SECONDS` | community | `60` |
+| `SOURCE_DATABASE_URL`, `ANALYTICS_ETL_CRON`, `ANALYTICS_TZ` | analytics | `DATABASE_URL`, cada 30 min, `America/Bogota` |
 | `RATE_LIMIT_PER_MINUTE`, `LOGIN_RATE_LIMIT_PER_MINUTE`, `CORS_ORIGIN` | gateway | `120`, `10`, `*` |
 
 Desplegado en Render: https://coworkspace-gateway.onrender.com

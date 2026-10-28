@@ -1,5 +1,5 @@
 # Blueprint de Render. En Render: New > Blueprint > selecciona este repositorio.
-# ANTES de aplicarlo, reemplaza TU_USUARIO_GITHUB (en minúsculas) en las URLs de imagen.
+# Las imágenes vienen de GHCR (ghcr.io/yayr10/...), publicadas por el workflow CI/CD.
 envVarGroups:
   - name: coworkspace-shared
     envVars:
