@@ -23,14 +23,26 @@ export function StatusChip() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
+  // Mientras haya servicios despertando (Render free) se consulta cada 15 s; con todo arriba, cada minuto.
+  // Si la consulta falla (p. ej. el gateway mismo está despertando) se conserva el último resultado.
   useEffect(() => {
     let alive = true;
-    const load = () => fetchHealth().then((r) => alive && setReport(r)).catch(() => alive && setReport(null));
-    load();
-    const id = setInterval(load, 60_000);
+    let timer: number | undefined;
+    const load = async () => {
+      let next: HealthReport | null = null;
+      try {
+        next = await fetchHealth();
+        if (alive) setReport(next);
+      } catch {
+        /* se reintenta en la próxima vuelta */
+      }
+      const everyUp = !!next && ORDER.every((k) => !next![k] || next![k].status === 'up');
+      if (alive) timer = window.setTimeout(load, everyUp ? 60_000 : 15_000);
+    };
+    void load();
     return () => {
       alive = false;
-      clearInterval(id);
+      window.clearTimeout(timer);
     };
   }, []);
 
@@ -60,7 +72,7 @@ export function StatusChip() {
             <p key={k}>
               <span className={`dot ${report?.[k]?.status === 'up' ? 'dot-up' : 'dot-down'}`} aria-hidden="true" />
               <span>{NAMES[k]}</span>
-              <span className="status-ms">{report?.[k]?.status === 'up' ? `${report[k].latencyMs ?? '–'} ms` : 'inactivo'}</span>
+              <span className="status-ms">{report?.[k]?.status === 'up' ? `${report[k].latencyMs ?? '–'} ms` : report ? 'despertando…' : 'consultando…'}</span>
             </p>
           ))}
         </div>

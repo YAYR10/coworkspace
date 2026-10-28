@@ -38,6 +38,8 @@ services:
         fromDatabase: { name: coworkspace-db, property: connectionString }
       - key: REDIS_URL
         fromService: { type: keyvalue, name: coworkspace-redis, property: connectionString }
+      - key: BILLING_SERVICE_URL
+        value: https://coworkspace-billing.onrender.com
       - key: ADMIN_EMAIL
         sync: false
       - key: ADMIN_PASSWORD
@@ -111,6 +113,8 @@ services:
         sync: false
       - key: WOMPI_EVENTS_SECRET      # test_events_...
         sync: false
+      - key: MEMBERSHIP_SERVICE_URL
+        value: https://coworkspace-membership.onrender.com
       - key: PAYMENT_REDIRECT_URL
         value: https://coworkspace-web.onrender.com/pago
 

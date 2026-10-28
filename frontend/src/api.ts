@@ -49,7 +49,11 @@ export interface Charge {
 }
 export interface PaymentStatus { provider: 'wompi' | 'simulado'; sandbox: boolean }
 export interface Checkout { chargeId: string; amount: number; reference: string; sandbox: boolean; checkoutUrl: string }
-export interface PaymentResult { status: Charge['status']; bookingId: string; amount: number; transactionStatus: string; message: string | null }
+export interface PlanCheckout { paymentId: string; amount: number; planName: string; reference: string; sandbox: boolean; checkoutUrl: string }
+export interface PaymentResult {
+  kind: 'booking' | 'plan'; status: Charge['status']; amount: number; transactionStatus: string; message: string | null;
+  bookingId?: string; planName?: string; activated?: boolean;
+}
 export type NotificationStatus = 'SENT' | 'LOGGED' | 'FAILED';
 export interface AppNotification {
   id: string; eventType: string; subject: string; body: string; status: NotificationStatus; createdAt: string;

@@ -1,7 +1,13 @@
 import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
-import { IsString, Length } from 'class-validator';
+import { IsString, IsUUID, Length } from 'class-validator';
 import { assertAdmin, AuthUser, CurrentUser } from '../common/current-user';
 import { BillingService } from './billing.service';
+import { PlanPaymentsService } from './plan-payments.service';
+
+export class PlanCheckoutDto {
+  @IsUUID()
+  planId: string;
+}
 
 @Controller('invoices')
 export class InvoicesController {
@@ -56,7 +62,28 @@ class VerifyDto {
 
 @Controller('payments')
 export class PaymentsController {
-  constructor(private readonly billing: BillingService) {}
+  constructor(
+    private readonly billing: BillingService,
+    private readonly plans: PlanPaymentsService,
+  ) {}
+
+  /** Pagar una membresía: devuelve el enlace al checkout de Wompi. */
+  @Post('plans/checkout')
+  @HttpCode(200)
+  planCheckout(@CurrentUser() user: AuthUser, @Body() dto: PlanCheckoutDto) {
+    return this.plans.checkout(user, dto.planId);
+  }
+
+  @Get('plans/me')
+  myPlanPayments(@CurrentUser() user: AuthUser) {
+    return this.plans.mine(user.id);
+  }
+
+  @Get('plans')
+  allPlanPayments(@CurrentUser() user: AuthUser) {
+    assertAdmin(user);
+    return this.plans.all();
+  }
 
   /** Qué pasarela está activa (pública: la interfaz la usa para mostrar el modo pruebas). */
   @Get('status')

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { api, Me, Plan, Subscription } from '../api';
+import { api, Me, PaymentStatus, Plan, PlanCheckout, Subscription } from '../api';
 import { Loading, Notice, PageHead } from '../components/ui';
 import { date, money } from '../format';
 import { errorText, useLoad } from '../hooks';
@@ -11,6 +11,8 @@ export function MembershipView() {
   const me = useLoad(() => api.get<Me>('/api/members/me'));
   const plans = useLoad(() => api.get<Plan[]>('/api/plans'));
   const history = useLoad(() => api.get<Subscription[]>('/api/subscriptions/me'));
+  const gateway = useLoad(() => api.get<PaymentStatus>('/api/payments/status').catch(() => null));
+  const payOnline = gateway.data?.provider === 'wompi';
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
   const [working, setWorking] = useState<string | null>(null);
 
@@ -22,6 +24,12 @@ export function MembershipView() {
     setWorking(p.id);
     setMessage(null);
     try {
+      if (payOnline) {
+        // Pasarela real: el plan se activa cuando Wompi aprueba el pago (vuelve a /pago)
+        const checkout = await api.post<PlanCheckout>('/api/payments/plans/checkout', { planId: p.id });
+        window.location.assign(checkout.checkoutUrl);
+        return;
+      }
       await api.post('/api/subscriptions', { planId: p.id });
       setMessage({ tone: 'ok', text: `Te suscribiste a ${p.name}. La factura del primer mes aparece en Pagos.` });
       await refresh();
@@ -100,7 +108,7 @@ export function MembershipView() {
                     <p className="plan-mine">Es tu plan</p>
                   ) : (
                     <button className="btn btn-ghost" disabled={!!active || working === p.id} onClick={() => void subscribe(p)}>
-                      {working === p.id ? 'Suscribiendo…' : 'Suscribirme'}
+                      {working === p.id ? (payOnline ? 'Abriendo la pasarela…' : 'Suscribiendo…') : payOnline ? `Pagar ${money(p.price)}` : 'Suscribirme'}
                     </button>
                   )}
                 </li>
@@ -109,6 +117,13 @@ export function MembershipView() {
           </ul>
         )}
         {active && <p className="hint">Para cambiar de plan, primero debe vencer el actual.</p>}
+        {!active && gateway.data && (
+          <p className="hint">
+            {payOnline
+              ? `El pago se hace en la pasarela segura de Wompi${gateway.data.sandbox ? ' (modo pruebas: usa la tarjeta 4242 4242 4242 4242, cualquier fecha futura y CVC)' : ''}. El plan se activa apenas se apruebe.`
+              : 'Pagos en modo demostración: el plan se activa al instante con un cobro simulado.'}
+          </p>
+        )}
       </section>
 
       {history.data && history.data.length > 0 && (

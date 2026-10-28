@@ -24,7 +24,7 @@ export function PaymentReturnView() {
           const r = await api.post<PaymentResult>('/api/payments/wompi/verify', { transactionId });
           if (!alive) return;
           setResult(r);
-          if (r.transactionStatus !== 'PENDING') return;
+          if (r.transactionStatus !== 'PENDING' && (r.kind !== 'plan' || r.status !== 'APPROVED' || r.activated)) return;
         } catch (e) {
           if (alive) setError(errorText(e));
           return;
@@ -37,9 +37,10 @@ export function PaymentReturnView() {
     };
   }, [transactionId, session?.member.id]);
 
+  const isPlan = result?.kind === 'plan';
   const leave = () => {
     window.history.replaceState(null, '', '/');
-    navigate('/cuenta/reservas');
+    navigate(isPlan ? '/cuenta/membresia' : '/cuenta/reservas');
   };
 
   const approved = result?.status === 'APPROVED';
@@ -58,15 +59,28 @@ export function PaymentReturnView() {
         )}
         {transactionId && session && !result && !error && <Loading label="Verificando el pago con Wompi…" />}
         {error && <Notice tone="error">{error}</Notice>}
-        {result && result.transactionStatus === 'PENDING' && <Notice>Wompi aún está procesando el pago. Tu reserva se confirmará sola apenas se apruebe.</Notice>}
-        {approved && <Notice tone="ok">Pago aprobado por {money(result.amount)}. Tu reserva quedó confirmada y te enviamos el correo.</Notice>}
-        {rejected && (
+        {result && result.transactionStatus === 'PENDING' && (
+          <Notice>Wompi aún está procesando el pago. {isPlan ? 'Tu plan' : 'Tu reserva'} se activará sola apenas se apruebe.</Notice>
+        )}
+        {approved && !isPlan && <Notice tone="ok">Pago aprobado por {money(result.amount)}. Tu reserva quedó confirmada y te enviamos el correo.</Notice>}
+        {approved && isPlan && (
+          <Notice tone="ok">
+            Pago aprobado por {money(result.amount)}.{' '}
+            {result.activated
+              ? `Tu plan ${result.planName} ya está activo y la factura electrónica aparece en Pagos.`
+              : `Estamos activando tu plan ${result.planName}; recarga en unos segundos.`}
+          </Notice>
+        )}
+        {rejected && !isPlan && (
           <Notice tone="error">
             El pago no fue aprobado{result.message ? `: ${result.message}` : ''}. La reserva se canceló y el horario quedó libre; puedes intentarlo de nuevo.
           </Notice>
         )}
+        {rejected && isPlan && (
+          <Notice tone="error">El pago no fue aprobado{result.message ? `: ${result.message}` : ''}. Tu plan no se activó; puedes intentarlo de nuevo.</Notice>
+        )}
         <p className="pay-ref">Transacción {transactionId}</p>
-        <button className="btn btn-primary" onClick={leave}>Ir a mis reservas</button>
+        <button className="btn btn-primary" onClick={leave}>{isPlan ? 'Ir a mi membresía' : 'Ir a mis reservas'}</button>
       </div>
     </div>
   );

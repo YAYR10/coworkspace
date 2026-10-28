@@ -78,6 +78,9 @@ ETL cada 30 minutos (y bajo demanda) que lee las bases de Membership, Space, Boo
 4. Si se rechaza → Booking la pasa a `CANCELLED (PAYMENT_REJECTED)` y la lista de espera se promueve automáticamente.
 5. Si el cobro no se completa, un cron cancela las reservas `PENDING` tras `SAGA_TIMEOUT_MINUTES` (20 en Render, para dar tiempo de pagar).
 
+### Pago de membresías (Wompi)
+Con las llaves de Wompi configuradas, "Pagar" en *Membresía* crea un pago pendiente en Billing y abre el checkout de Wompi (sandbox; tarjeta de prueba `4242 4242 4242 4242`). Al volver (`/pago?id=…`) o por el webhook firmado, Billing confirma la transacción y le pide a Membership activar el plan (`POST /subscriptions/internal/activate`, solo interno). Membership publica `membership.activated` y Billing emite la factura electrónica. Mientras la pasarela está activa, Membership rechaza la suscripción directa (402) para que nadie se salte el pago. Sin llaves, todo funciona con cobro simulado.
+
 ### Bloqueo optimista (sin dobles reservas)
 Cada recurso tiene una fila `resource_locks(resource_id, version)`. Al reservar se lee la versión, se verifica que no haya solapamiento y, dentro de una transacción, se ejecuta `UPDATE ... SET version = version + 1 WHERE version = <leída>`. Si otra reserva concurrente ganó, el `UPDATE` afecta 0 filas, se reintenta y el reintento detecta el solapamiento (409). La prueba k6 lanza 50 reservas simultáneas sobre la misma sala y exige que exactamente una gane.
 

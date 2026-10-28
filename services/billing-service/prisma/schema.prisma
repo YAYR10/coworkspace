@@ -75,3 +75,24 @@ model ExtraCharge {
   @@index([memberId])
   @@map("extra_charges")
 }
+
+/// Pago de una membresía con la pasarela (Wompi). Al aprobarse, Billing activa el plan en Membership.
+model PlanPayment {
+  id            String       @id @default(uuid())
+  memberId      String       @map("member_id")
+  planId        String       @map("plan_id")
+  planCode      String       @map("plan_code")
+  planName      String       @map("plan_name")
+  amount        Int
+  status        ChargeStatus @default(PENDING)
+  reference     String?      @unique
+  transactionId String?      @map("transaction_id")
+  paymentMethod String?      @map("payment_method")
+  failureReason String?      @map("failure_reason")
+  activated     Boolean      @default(false)
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  @@index([memberId, createdAt])
+  @@map("plan_payments")
+}
