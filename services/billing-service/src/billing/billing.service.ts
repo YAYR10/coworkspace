@@ -1,8 +1,11 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { BadGatewayException, BadRequestException, ConflictException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { ExtraCharge } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { EventBus } from '../events/event-bus.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuthUser, isStaff } from '../common/current-user';
 import { PaymentGatewayService } from './payment-gateway.service';
+import { WompiService, WompiTransaction } from './wompi.service';
 
 export interface MembershipActivated {
   subscriptionId: string;
@@ -31,6 +34,7 @@ export class BillingService implements OnModuleInit {
     private readonly prisma: PrismaService,
     private readonly events: EventBus,
     private readonly payments: PaymentGatewayService,
+    private readonly wompi: WompiService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -93,6 +97,7 @@ export class BillingService implements OnModuleInit {
   async onBookingCreated(data: BookingCreated) {
     const previous = await this.prisma.extraCharge.findUnique({ where: { bookingId: data.bookingId } });
     if (previous) {
+      if (previous.status === 'PENDING') return; // sigue esperando el pago en la pasarela
       // Evento duplicado: se republica el resultado ya decidido.
       const type = previous.status === 'REJECTED' ? 'billing.charge.rejected' : 'billing.charge.approved';
       await this.events.publish(type, { bookingId: data.bookingId, memberId: data.memberId, amount: previous.amount, reason: previous.failureReason });
@@ -110,6 +115,16 @@ export class BillingService implements OnModuleInit {
     const reason = hasActivePlan
       ? `Uso de ${data.resourceType} fuera del plan ${plan.planCode} (${data.hours} h)`
       : `Uso de ${data.resourceType} sin membresía activa (${data.hours} h)`;
+    // Con Wompi configurado, el cargo queda PENDIENTE hasta que el miembro pague en la pasarela.
+    if (this.wompi.enabled) {
+      const pending = await this.prisma.extraCharge.create({
+        data: { memberId: data.memberId, bookingId: data.bookingId, amount, reason, status: 'PENDING' },
+      });
+      this.logger.log(`[booking_id=${data.bookingId}] cargo de ${amount} pendiente de pago en Wompi`);
+      await this.events.publish('billing.charge.pending', { bookingId: data.bookingId, memberId: data.memberId, amount, chargeId: pending.id });
+      return;
+    }
+
     const payment = await this.payments.charge(data.memberId, amount, 'EXTRA');
 
     const charge = await this.prisma.extraCharge.create({
@@ -134,8 +149,91 @@ export class BillingService implements OnModuleInit {
 
   /** Si la reserva se cancela, el cargo adicional aprobado se anula (reembolso). */
   async onBookingCancelled(data: { bookingId: string }) {
-    const result = await this.prisma.extraCharge.updateMany({ where: { bookingId: data.bookingId, status: 'APPROVED' }, data: { status: 'VOIDED' } });
+    const result = await this.prisma.extraCharge.updateMany({
+      where: { bookingId: data.bookingId, status: { in: ['APPROVED', 'PENDING'] } },
+      data: { status: 'VOIDED' },
+    });
     if (result.count) this.logger.log(`[booking_id=${data.bookingId}] cargo adicional anulado`);
+  }
+
+  // ---------- pasarela de pago (Wompi) ----------
+  paymentStatus() {
+    return { provider: this.wompi.enabled ? 'wompi' : 'simulado', sandbox: this.wompi.enabled ? this.wompi.sandbox : true };
+  }
+
+  private async ownCharge(user: AuthUser, bookingId: string): Promise<ExtraCharge | null> {
+    const charge = await this.prisma.extraCharge.findUnique({ where: { bookingId } });
+    if (charge && charge.memberId !== user.id && !isStaff(user)) throw new NotFoundException('Cobro no encontrado');
+    return charge;
+  }
+
+  /** Cobro de una reserva (null si el plan la cubre o aún no se ha decidido). */
+  chargeForBooking(user: AuthUser, bookingId: string) {
+    return this.ownCharge(user, bookingId);
+  }
+
+  /** Crea un intento de pago y devuelve el enlace al checkout de Wompi. */
+  async checkout(user: AuthUser, bookingId: string) {
+    if (!this.wompi.enabled) throw new ConflictException('La pasarela de pagos no está configurada');
+    const charge = await this.ownCharge(user, bookingId);
+    if (!charge) throw new NotFoundException('Esta reserva no tiene cobro pendiente');
+    if (charge.status !== 'PENDING') throw new ConflictException('Este cobro ya no está pendiente de pago');
+    const reference = `${charge.id}.${Date.now().toString(36)}`;
+    await this.prisma.extraCharge.update({ where: { id: charge.id }, data: { paymentReference: reference } });
+    return { chargeId: charge.id, amount: charge.amount, reference, sandbox: this.wompi.sandbox, checkoutUrl: this.wompi.checkoutUrl(reference, charge.amount) };
+  }
+
+  /** El miembro vuelve del checkout con el id de la transacción: se consulta en Wompi y se aplica el resultado. */
+  async verifyTransaction(user: AuthUser, transactionId: string) {
+    const tx = await this.wompi.getTransaction(transactionId);
+    if (!tx) throw new BadGatewayException('No pudimos consultar el pago en Wompi. Intenta de nuevo.');
+    const charge = await this.prisma.extraCharge.findUnique({ where: { id: tx.reference.split('.')[0] } });
+    if (!charge || (charge.memberId !== user.id && !isStaff(user))) throw new NotFoundException('Pago no encontrado');
+    const settled = await this.settle(charge, tx);
+    return { status: settled.status, bookingId: settled.bookingId, amount: settled.amount, transactionStatus: tx.status, message: tx.status_message ?? null };
+  }
+
+  /** Webhook de Wompi (evento transaction.updated), validado con la firma del secreto de eventos. */
+  async handleWompiEvent(event: any) {
+    if (!this.wompi.verifyEvent(event)) {
+      this.logger.warn('Evento de Wompi con firma inválida: se ignora');
+      throw new BadRequestException('Firma inválida');
+    }
+    if (event.event !== 'transaction.updated') return { ok: true };
+    const tx = event.data?.transaction as WompiTransaction;
+    const charge = tx?.reference ? await this.prisma.extraCharge.findUnique({ where: { id: tx.reference.split('.')[0] } }) : null;
+    if (!charge) return { ok: true };
+    await this.settle(charge, tx);
+    return { ok: true };
+  }
+
+  /** Aplica el resultado de la pasarela una sola vez (solo desde PENDING) y continúa la saga. */
+  async settle(charge: ExtraCharge, tx: WompiTransaction): Promise<ExtraCharge> {
+    if (charge.status !== 'PENDING' || tx.status === 'PENDING') return charge;
+    if (tx.currency !== 'COP' || tx.amount_in_cents !== charge.amount * 100) {
+      this.logger.error(`[booking_id=${charge.bookingId}] el monto pagado (${tx.amount_in_cents}) no coincide con el cobro`);
+      return charge;
+    }
+    const approved = tx.status === 'APPROVED';
+    const result = await this.prisma.extraCharge.updateMany({
+      where: { id: charge.id, status: 'PENDING' },
+      data: {
+        status: approved ? 'APPROVED' : 'REJECTED',
+        transactionId: tx.id,
+        paymentMethod: tx.payment_method_type ?? null,
+        failureReason: approved ? null : tx.status_message || `Pago ${tx.status.toLowerCase()} en Wompi`,
+      },
+    });
+    const updated = await this.prisma.extraCharge.findUniqueOrThrow({ where: { id: charge.id } });
+    if (result.count === 0) return updated; // otro proceso (webhook o consulta) ya lo aplicó
+    if (approved) {
+      this.logger.log(`[booking_id=${charge.bookingId}] pago aprobado en Wompi (${tx.id})`);
+      await this.events.publish('billing.charge.approved', { bookingId: charge.bookingId, memberId: charge.memberId, amount: charge.amount, chargeId: charge.id, covered: false, transactionId: tx.id });
+    } else {
+      this.logger.warn(`[booking_id=${charge.bookingId}] pago ${tx.status} en Wompi`);
+      await this.events.publish('billing.charge.rejected', { bookingId: charge.bookingId, memberId: charge.memberId, amount: charge.amount, reason: updated.failureReason });
+    }
+    return updated;
   }
 
   // ---------- consultas ----------

@@ -17,7 +17,9 @@ enum InvoiceStatus {
   FAILED
 }
 
+/// PENDING: esperando el pago en la pasarela (Wompi)
 enum ChargeStatus {
+  PENDING
   APPROVED
   REJECTED
   VOIDED
@@ -62,6 +64,11 @@ model ExtraCharge {
   reason        String
   status        ChargeStatus
   failureReason String?      @map("failure_reason")
+  /// Referencia enviada a la pasarela (<id del cargo>.<intento>)
+  paymentReference String?   @map("payment_reference")
+  /// Id de la transacción en Wompi
+  transactionId String?      @map("transaction_id")
+  paymentMethod String?      @map("payment_method")
   createdAt     DateTime     @default(now()) @map("created_at")
   updatedAt     DateTime     @updatedAt @map("updated_at")
 
