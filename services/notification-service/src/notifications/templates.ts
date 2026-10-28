@@ -23,7 +23,16 @@ const CANCEL_REASON: Record<string, string> = {
 };
 
 /** Eventos que generan correo. Los demás se ignoran. */
-export const HANDLED = ['booking.confirmed', 'booking.cancelled', 'booking.waitlist.promoted', 'membership.activated', 'membership.expired'];
+export const HANDLED = [
+  'booking.confirmed',
+  'booking.cancelled',
+  'booking.waitlist.promoted',
+  'membership.activated',
+  'membership.expired',
+  // Generados por el programador de recordatorios de este mismo servicio
+  'booking.reminder',
+  'membership.expiring',
+];
 
 export function buildMessage(event: DomainEvent, name: string, place: Place | null): Message | null {
   const d = event.data ?? {};
@@ -61,6 +70,20 @@ export function buildMessage(event: DomainEvent, name: string, place: Place | nu
             ? `renovamos tu plan ${d.planName} por ${money.format(Number(d.price ?? 0))}.`
             : `tu plan ${d.planName} ya está activo. Ya puedes reservar desde la aplicación.`,
           `La próxima renovación es el ${day.format(new Date(d.renewsAt))}.`,
+        ].join('\n\n'),
+      };
+    case 'booking.reminder':
+      return {
+        subject: `Recordatorio: tu reserva empieza a las ${hour.format(new Date(d.startTime))}`,
+        text: [hi, `te recordamos tu reserva de ${where(place)} ${when(d)}.`, 'Al llegar, muestra tu código QR de acceso en la recepción (sección Mi acceso de la aplicación).'].join('\n\n'),
+      };
+    case 'membership.expiring':
+      return {
+        subject: `Tu plan ${d.planName ?? ''} vence el ${day.format(new Date(d.renewsAt))}`.replace('  ', ' '),
+        text: [
+          hi,
+          `el periodo actual de tu plan ${d.planName ?? ''} termina el ${day.format(new Date(d.renewsAt))}.`.replace('  ', ' '),
+          'Si tienes la renovación automática activa no tienes que hacer nada. Si la desactivaste, tu credencial de acceso y tus reservas dejarán de funcionar ese día; puedes renovar desde la sección Membresía.',
         ].join('\n\n'),
       };
     case 'membership.expired':

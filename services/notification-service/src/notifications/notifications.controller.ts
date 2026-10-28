@@ -1,10 +1,20 @@
 import { Controller, Get } from '@nestjs/common';
 import { assertAdmin, AuthUser, CurrentUser } from '../common/current-user';
 import { NotificationsService } from './notifications.service';
+import { RemindersService } from './reminders.service';
 
 @Controller('notifications')
 export class NotificationsController {
-  constructor(private readonly notifications: NotificationsService) {}
+  constructor(
+    private readonly notifications: NotificationsService,
+    private readonly reminders: RemindersService,
+  ) {}
+
+  /** Recordatorios programados del usuario (próximas reservas y vencimiento del plan). */
+  @Get('reminders/me')
+  upcoming(@CurrentUser() user: AuthUser) {
+    return this.reminders.upcoming(user.id);
+  }
 
   /** Bandeja del usuario: los avisos que se le enviaron. */
   @Get('me')

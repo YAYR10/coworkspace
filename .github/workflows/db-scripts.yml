@@ -1,0 +1,44 @@
+name: Scripts de base de datos
+
+# Genera db/01_schema.sql y db/03_backup.sql de cada microservicio, valida que el esquema
+# y los datos de ejemplo (db/02_seed.sql) se cargan sin errores y los guarda en la rama.
+on:
+  workflow_dispatch:
+  push:
+    branches-ignore: [main]
+    paths:
+      - 'services/*/prisma/schema.prisma'
+      - 'services/*/db/02_seed.sql'
+      - 'scripts/db-scripts.sh'
+      - '.github/workflows/db-scripts.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  db:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: coworkspace
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Generar y validar scripts
+        run: ./scripts/db-scripts.sh
+      - name: Guardar en la rama
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add services/*/db
+          if git diff --cached --quiet; then echo "Sin cambios"; exit 0; fi
+          git commit -m "DB: scripts de esquema y respaldo generados y validados"
+          git push

@@ -18,7 +18,7 @@ export function Empty({ title, children }: { title: string; children?: ReactNode
   );
 }
 
-const STATUS: Record<BookingStatus, string> = { PENDING: 'Pendiente de cobro', CONFIRMED: 'Confirmada', CANCELLED: 'Cancelada' };
+const STATUS: Record<BookingStatus, string> = { PENDING: 'Pendiente de pago', CONFIRMED: 'Confirmada', CANCELLED: 'Cancelada' };
 export function StatusTag({ status }: { status: BookingStatus }) {
   return <span className={`tag tag-${status.toLowerCase()}`}>{STATUS[status]}</span>;
 }

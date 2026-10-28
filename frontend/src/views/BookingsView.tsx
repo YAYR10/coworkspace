@@ -1,6 +1,7 @@
 import { link, navigate } from '../router';
 import { useMemo, useState } from 'react';
-import { api, Booking, Desk, Location, Room, WaitlistEntry } from '../api';
+import { api, Booking, Charge, Desk, Location, Room, WaitlistEntry } from '../api';
+import { PayButton } from '../components/PayButton';
 import { Empty, Loading, Notice, PageHead, StatusTag } from '../components/ui';
 import { cancelReason, longDay, time } from '../format';
 import { errorText, useLoad } from '../hooks';
@@ -8,6 +9,8 @@ import { errorText, useLoad } from '../hooks';
 export function BookingsView() {
   const bookings = useLoad(() => api.get<Booking[]>('/api/bookings/me'));
   const waitlist = useLoad(() => api.get<WaitlistEntry[]>('/api/bookings/waitlist/me'));
+  const charges = useLoad(() => api.get<Charge[]>('/api/charges/me').catch(() => [] as Charge[]));
+  const pendingCharge = (bookingId: string) => charges.data?.find((c) => c.bookingId === bookingId && c.status === 'PENDING');
   const names = useLoad(async () => {
     const [rooms, desks, locations] = await Promise.all([
       api.get<Room[]>('/api/rooms'),
@@ -65,6 +68,7 @@ export function BookingsView() {
         {b.status === 'CANCELLED' && <p className="row-note">{cancelReason(b.cancelReason)}</p>}
       </div>
       <StatusTag status={b.status} />
+      {b.status === 'PENDING' && pendingCharge(b.id) && <PayButton compact bookingId={b.id} amount={pendingCharge(b.id)!.amount} />}
       {canCancel && b.status !== 'CANCELLED' && (
         <button className="btn btn-quiet" disabled={cancelling === b.id} onClick={() => void cancel(b)}>
           {cancelling === b.id ? 'Cancelando…' : 'Cancelar'}

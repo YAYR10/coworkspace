@@ -42,12 +42,65 @@ export interface Booking {
 export interface BusySlot { startTime: string; endTime: string; status: BookingStatus }
 export interface WaitlistEntry { id: string; resourceId: string; resourceType: ResourceType; startTime: string; endTime: string; status: 'WAITING' | 'PROMOTED' | 'EXPIRED'; bookingId?: string | null; createdAt: string }
 export interface Invoice { id: string; memberId: string; period: string; amount: number; status: 'PAID' | 'FAILED'; electronicNumber?: string | null; failureReason?: string | null; createdAt: string }
-export interface Charge { id: string; memberId: string; bookingId: string; amount: number; reason: string; status: 'APPROVED' | 'REJECTED' | 'VOIDED'; failureReason?: string | null; createdAt: string }
+export interface Charge {
+  id: string; memberId: string; bookingId: string; amount: number; reason: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'VOIDED'; failureReason?: string | null; createdAt: string;
+  transactionId?: string | null; paymentMethod?: string | null;
+}
+export interface PaymentStatus { provider: 'wompi' | 'simulado'; sandbox: boolean }
+export interface Checkout { chargeId: string; amount: number; reference: string; sandbox: boolean; checkoutUrl: string }
+export interface PaymentResult { status: Charge['status']; bookingId: string; amount: number; transactionStatus: string; message: string | null }
 export type NotificationStatus = 'SENT' | 'LOGGED' | 'FAILED';
 export interface AppNotification {
   id: string; eventType: string; subject: string; body: string; status: NotificationStatus; createdAt: string;
   email?: string; memberId?: string; error?: string | null;
 }
+// ---------- Control de acceso
+export interface IssuedCredential { id: string; kind: 'QR' | 'NFC'; token: string; issuedAt: string; expiresAt: string; ttlSeconds: number }
+export interface AccessCredential { id: string; kind: 'QR' | 'NFC'; isActive: boolean; issuedAt: string; expiresAt: string; revokedAt?: string | null; revokedReason?: string | null }
+export interface AccessLog { id: string; memberId?: string | null; locationId: string; credentialId?: string | null; timestamp: string; granted: boolean; reason: string; latencyMs: number }
+export interface AccessValidation { granted: boolean; reason: string; memberId: string | null; memberEmail: string | null; latencyMs: number }
+export interface AccessStats { last24h: { granted: number; denied: number; avgLatencyMs: number } }
+
+// ---------- Comunidad
+export interface CommunityProfile {
+  memberId: string; displayName: string; headline?: string | null; bio?: string | null; company?: string | null;
+  skills: string[]; locationId?: string | null; linkedinUrl?: string | null; visible: boolean; updatedAt?: string;
+}
+export interface CommunityEvent {
+  id: string; locationId: string; title: string; description?: string | null; scheduledAt: string; durationMinutes: number;
+  capacity: number; cancelled: boolean; attendeeCount: number; spotsLeft: number; attending: boolean;
+}
+export interface Conversation { memberId: string; displayName: string; lastMessage: string; lastAt: string; unread: number }
+export interface ChatMessage { id: string; senderId: string; recipientId: string; body: string; readAt?: string | null; createdAt: string }
+
+// ---------- Analítica
+export interface OccupancyKpi {
+  days: number; occupancyRate: number; bookedHours: number;
+  byLocation: { locationId: string; name: string; city: string; capacity: number; bookedHours: number; bookings: number; occupancyRate: number }[];
+  byHour: { hour: number; occupancyRate: number }[];
+  heatmap: { weekday: number; hour: number; occupancyRate: number }[];
+}
+export interface RevenueKpi {
+  rows: { period: string; planCode: string; planName: string; membershipRevenue: number; extraRevenue: number; totalRevenue: number }[];
+  byPlan: { planCode: string; planName: string; total: number; membership: number; extra: number }[];
+  byPeriod: { period: string; total: number }[];
+  total: number;
+}
+export interface RetentionKpi {
+  cohorts: { cohort: string; members: number; retained: number; churned: number; retentionRate: number }[];
+  members: number; retained: number; churned: number; retentionRate: number;
+}
+export interface AnalyticsSummary {
+  occupancyRate30d: number; bookedHours30d: number;
+  topLocation: OccupancyKpi['byLocation'][number] | null;
+  peakHour: { hour: number; occupancyRate: number } | null;
+  activeMembers: number | null; retentionRate: number;
+  revenue: { thisMonth: number; total: number; topPlan: RevenueKpi['byPlan'][number] | null } | null;
+  lastEtlAt: string | null;
+}
+export interface EtlRun { id: string; trigger: string; status: 'RUNNING' | 'OK' | 'FAILED'; startedAt: string; finishedAt?: string | null; durationMs?: number | null; rows: number; error?: string | null }
+
 export interface ServiceHealth { status: 'up' | 'down'; httpStatus?: number; latencyMs?: number; error?: string }
 export type HealthReport = Record<string, ServiceHealth>;
 
