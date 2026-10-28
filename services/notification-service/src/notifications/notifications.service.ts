@@ -3,6 +3,7 @@ import { DirectoryClient } from '../clients/directory.client';
 import { DomainEvent, EventStream } from '../events/event-stream.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailerService } from './mailer.service';
+import { RemindersService } from './reminders.service';
 import { buildMessage, HANDLED, toHtml } from './templates';
 
 @Injectable()
@@ -14,11 +15,16 @@ export class NotificationsService implements OnModuleInit {
     private readonly stream: EventStream,
     private readonly directory: DirectoryClient,
     private readonly mailer: MailerService,
+    private readonly reminders: RemindersService,
   ) {}
 
   async onModuleInit(): Promise<void> {
     if (process.env.NODE_ENV === 'test') return;
-    await this.stream.start((event) => this.handle(event));
+    this.reminders.onSend((event) => this.handle(event));
+    await this.stream.start(async (event) => {
+      await this.reminders.schedule(event).catch((err) => this.logger.error(`No se pudo programar recordatorio: ${err.message}`));
+      await this.handle(event);
+    });
     this.logger.log(`Escuchando eventos (${this.mailer.enabled ? 'envío por Brevo' : 'modo demostración, sin enviar correos'})`);
   }
 

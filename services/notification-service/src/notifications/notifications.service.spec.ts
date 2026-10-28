@@ -35,7 +35,7 @@ describe('NotificationsService.handle', () => {
     prisma = { notification: { findUnique: jest.fn().mockResolvedValue(null), create: jest.fn() } };
     directory = { contact: jest.fn().mockResolvedValue({ name: 'Ana Demo', email: 'ana@test.co' }), place: jest.fn().mockResolvedValue(place) };
     mailer = { enabled: false, send: jest.fn().mockResolvedValue({ status: 'LOGGED' }) };
-    service = new NotificationsService(prisma, {} as any, directory, mailer);
+    service = new NotificationsService(prisma, {} as any, directory, mailer, {} as any);
   });
 
   it('envía y registra el correo de una reserva confirmada', async () => {
