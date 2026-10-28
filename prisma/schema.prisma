@@ -30,3 +30,32 @@ model Notification {
   @@index([memberId, createdAt])
   @@map("notifications")
 }
+
+enum ReminderKind {
+  BOOKING_REMINDER
+  MEMBERSHIP_EXPIRING
+}
+
+enum ReminderStatus {
+  PENDING
+  SENT
+  CANCELLED
+}
+
+/// Recordatorios programados: antes de cada reserva confirmada y antes de que venza la membresía.
+model Reminder {
+  id        String         @id @default(uuid())
+  kind      ReminderKind
+  /// bookingId o subscriptionId
+  refId     String         @map("ref_id")
+  memberId  String         @map("member_id")
+  sendAt    DateTime       @map("send_at")
+  payload   Json
+  status    ReminderStatus @default(PENDING)
+  sentAt    DateTime?      @map("sent_at")
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  @@unique([kind, refId])
+  @@index([status, sendAt])
+  @@map("reminders")
+}
