@@ -40,6 +40,7 @@ services:
       PORT: 3001
       SERVICE_NAME: membership-service
       DB_SCHEMA: membership
+      BILLING_SERVICE_URL: http://billing-service:3004
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-cambia-esto}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@coworkspace.co}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin12345!}
@@ -71,6 +72,7 @@ services:
       PORT: 3004
       SERVICE_NAME: billing-service
       DB_SCHEMA: billing
+      MEMBERSHIP_SERVICE_URL: http://membership-service:3001
       EXTRA_CHARGE_APPROVAL_LIMIT: 200000
       # Opcional: llaves sandbox de Wompi (sin ellas se usa la pasarela simulada)
       WOMPI_PUBLIC_KEY: ${WOMPI_PUBLIC_KEY:-}
