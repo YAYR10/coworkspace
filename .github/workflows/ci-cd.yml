@@ -38,7 +38,7 @@ jobs:
 
   # 2) Pruebas de integración + carga (k6) del Booking Service con todo el stack levantado
   load-test:
-    name: Carga k6 (Booking Service)
+    name: Integración y carga k6
     needs: test
     runs-on: ubuntu-latest
     env:
@@ -61,6 +61,8 @@ jobs:
         run: |
           docker run --rm --network host -v "$PWD/load-tests:/scripts" grafana/k6:0.54.0 \
             run -e BASE_URL=http://localhost:3000 /scripts/booking-peak.js
+      - name: Prueba de punta a punta de Access Control, Community, Analytics y pagos
+        run: ./load-tests/smoke-new-services.sh
       - name: Logs si falla
         if: failure()
         run: docker compose logs --tail=200
