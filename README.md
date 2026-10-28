@@ -60,7 +60,8 @@ Todas las rutas se consumen a través del API Gateway (prefijo `/api`), que vali
 | GET | `/api/members` | Admin | Listar usuarios |
 | PATCH | `/api/members/:id/role` | Admin | Cambiar rol |
 | GET | `/api/members/:id/contact` | Interno | Nombre y correo (para Notification) |
-| POST | `/api/subscriptions` | Miembro | Suscribirse a un plan |
+| POST | `/api/subscriptions` | Miembro | Suscribirse a un plan (solo con pago simulado; con Wompi activo responde 402 y el plan se paga en `/api/payments/plans/checkout`) |
+| POST | `/subscriptions/internal/activate` | Interno | Billing activa el plan cuando el pago se aprueba |
 | GET | `/api/subscriptions/me` | Miembro | Mis suscripciones |
 | GET | `/api/subscriptions/member/:memberId/active` | Interno | ¿Membresía vigente? (Access Control, Community) |
 | POST | `/api/subscriptions/:id/cancel` | Miembro | Desactivar renovación automática |
@@ -102,6 +103,7 @@ Restaurar el respaldo: `psql "$DATABASE_URL" -f db/03_backup.sql`. Los scripts s
 | `ACCESS_TOKEN_TTL` | Duración del token de acceso | `15m` |
 | `REFRESH_TOKEN_TTL_DAYS` | Días de vigencia del refresh token | `7` |
 | `BILLING_CYCLE_DAYS` | Duración del periodo de la membresía | `30` |
+| `BILLING_SERVICE_URL` | Para saber si hay pasarela de pagos activa | `http://localhost:3004` |
 | `ADMIN_EMAIL` | Administrador que se crea al iniciar (opcional) | `admin@coworkspace.co` |
 | `ADMIN_PASSWORD` | Contraseña de ese administrador | `cambia-esta-clave` |
 
