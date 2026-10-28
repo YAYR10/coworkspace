@@ -1,0 +1,61 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// QR: código de corta duración que la app muestra y se renueva solo · NFC: etiqueta física de mayor duración
+enum CredentialKind {
+  QR
+  NFC
+}
+
+/// Credencial digital de acceso físico. Solo se guarda el hash del secreto, nunca el secreto.
+model AccessCredential {
+  id             String         @id @default(uuid())
+  memberId       String         @map("member_id")
+  memberEmail    String?        @map("member_email")
+  kind           CredentialKind @default(QR)
+  credentialHash String         @map("credential_hash")
+  isActive       Boolean        @default(true) @map("is_active")
+  issuedAt       DateTime       @default(now()) @map("issued_at")
+  expiresAt      DateTime       @map("expires_at")
+  revokedAt      DateTime?      @map("revoked_at")
+  revokedReason  String?        @map("revoked_reason")
+  logs           AccessLog[]
+
+  @@index([memberId, isActive])
+  @@map("access_credentials")
+}
+
+/// Bitácora de cada intento de acceso en la puerta de una sede (concedido o denegado).
+model AccessLog {
+  id           String            @id @default(uuid())
+  memberId     String?           @map("member_id")
+  locationId   String            @map("location_id")
+  credentialId String?           @map("credential_id")
+  timestamp    DateTime          @default(now())
+  granted      Boolean
+  reason       String
+  latencyMs    Int               @map("latency_ms")
+  credential   AccessCredential? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
+
+  @@index([locationId, timestamp])
+  @@index([memberId, timestamp])
+  @@map("access_log")
+}
+
+/// Proyección local del estado de membresía (eventos membership.activated / membership.expired):
+/// permite validar en milisegundos sin llamar a Membership en cada entrada.
+model MemberAccess {
+  memberId  String   @id @map("member_id")
+  active    Boolean
+  planCode  String?  @map("plan_code")
+  renewsAt  DateTime? @map("renews_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("member_access")
+}
