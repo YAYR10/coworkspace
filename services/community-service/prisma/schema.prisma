@@ -1,0 +1,68 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Directorio navegable de miembros. Cada miembro decide si aparece (visible).
+model MemberProfile {
+  memberId    String   @id @map("member_id")
+  displayName String   @map("display_name")
+  headline    String?
+  bio         String?
+  company     String?
+  skills      String[] @default([])
+  locationId  String?  @map("location_id")
+  linkedinUrl String?  @map("linkedin_url")
+  visible     Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([visible, locationId])
+  @@map("member_directory")
+}
+
+/// Eventos de networking organizados en cada sede.
+model CommunityEvent {
+  id              String          @id @default(uuid())
+  locationId      String          @map("location_id")
+  title           String
+  description     String?
+  scheduledAt     DateTime        @map("scheduled_at")
+  durationMinutes Int             @default(90) @map("duration_minutes")
+  capacity        Int             @default(30)
+  createdBy       String          @map("created_by")
+  cancelled       Boolean         @default(false)
+  createdAt       DateTime        @default(now()) @map("created_at")
+  attendees       EventAttendee[]
+
+  @@index([locationId, scheduledAt])
+  @@map("events")
+}
+
+model EventAttendee {
+  eventId   String         @map("event_id")
+  memberId  String         @map("member_id")
+  createdAt DateTime       @default(now()) @map("created_at")
+  event     CommunityEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, memberId])
+  @@map("event_attendees")
+}
+
+/// Mensajería interna entre miembros.
+model Message {
+  id          String    @id @default(uuid())
+  senderId    String    @map("sender_id")
+  recipientId String    @map("recipient_id")
+  body        String
+  readAt      DateTime? @map("read_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([recipientId, createdAt])
+  @@index([senderId, createdAt])
+  @@map("messages")
+}
