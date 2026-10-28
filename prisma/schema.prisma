@@ -1,0 +1,73 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// KPI: horas reservadas vs. capacidad, por sede, día y franja horaria (hora local).
+model OccupancyByLocation {
+  id            String   @id @default(uuid())
+  locationId    String   @map("location_id")
+  locationName  String   @map("location_name")
+  city          String
+  day           DateTime @db.Date
+  weekday       Int
+  hourSlot      Int      @map("hour_slot")
+  bookedHours   Float    @map("booked_hours")
+  capacityHours Float    @map("capacity_hours")
+  occupancyRate Float    @map("occupancy_rate")
+  bookings      Int
+  computedAt    DateTime @default(now()) @map("computed_at")
+
+  @@unique([locationId, day, hourSlot])
+  @@index([day])
+  @@map("occupancy_by_location")
+}
+
+/// KPI: ingresos por tipo de membresía y mes (mensualidades + cargos adicionales).
+model RevenueByPlan {
+  id                String   @id @default(uuid())
+  period            String
+  planCode          String   @map("plan_code")
+  planName          String   @map("plan_name")
+  membershipRevenue Int      @map("membership_revenue")
+  extraRevenue      Int      @map("extra_revenue")
+  totalRevenue      Int      @map("total_revenue")
+  invoices          Int
+  payingMembers     Int      @map("paying_members")
+  computedAt        DateTime @default(now()) @map("computed_at")
+
+  @@unique([period, planCode])
+  @@map("revenue_by_plan")
+}
+
+/// KPI: retención por cohorte (mes en que el miembro tomó su primera membresía).
+model MemberRetention {
+  id            String   @id @default(uuid())
+  cohort        String   @unique
+  members       Int
+  retained      Int
+  churned       Int
+  retentionRate Float    @map("retention_rate")
+  computedAt    DateTime @default(now()) @map("computed_at")
+
+  @@map("member_retention")
+}
+
+/// Historial de ejecuciones del ETL periódico.
+model EtlRun {
+  id         String    @id @default(uuid())
+  trigger    String
+  status     String
+  startedAt  DateTime  @default(now()) @map("started_at")
+  finishedAt DateTime? @map("finished_at")
+  durationMs Int?      @map("duration_ms")
+  rows       Int       @default(0)
+  error      String?
+
+  @@index([startedAt])
+  @@map("etl_runs")
+}
