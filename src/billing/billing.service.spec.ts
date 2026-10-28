@@ -1,5 +1,6 @@
 import { BillingService } from './billing.service';
 import { PaymentGatewayService } from './payment-gateway.service';
+import { WompiService } from './wompi.service';
 
 describe('BillingService', () => {
   let prisma: any;
@@ -16,7 +17,9 @@ describe('BillingService', () => {
       extraCharge: { findUnique: jest.fn().mockResolvedValue(null), create: jest.fn(({ data }: any) => ({ id: 'ch-1', ...data })), updateMany: jest.fn() },
     };
     events = { publish: jest.fn(), subscribe: jest.fn() };
-    service = new BillingService(prisma, events, new PaymentGatewayService());
+    delete process.env.WOMPI_PUBLIC_KEY;
+    delete process.env.WOMPI_INTEGRITY_SECRET;
+    service = new BillingService(prisma, events, new PaymentGatewayService(), new WompiService());
   });
 
   it('aprueba sin cargo cuando el recurso está incluido en el plan', async () => {
@@ -54,6 +57,6 @@ describe('BillingService', () => {
   it('anula el cargo adicional cuando se cancela la reserva', async () => {
     prisma.extraCharge.updateMany.mockResolvedValue({ count: 1 });
     await service.onBookingCancelled({ bookingId: 'b-1' });
-    expect(prisma.extraCharge.updateMany).toHaveBeenCalledWith({ where: { bookingId: 'b-1', status: 'APPROVED' }, data: { status: 'VOIDED' } });
+    expect(prisma.extraCharge.updateMany).toHaveBeenCalledWith({ where: { bookingId: 'b-1', status: { in: ['APPROVED', 'PENDING'] } }, data: { status: 'VOIDED' } });
   });
 });
