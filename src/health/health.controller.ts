@@ -3,14 +3,14 @@ import { serviceUrls } from '../gateway/routes';
 
 /** Render free responde 502/503 mientras un servicio dormido arranca: se reintenta hasta que conteste. */
 const WAKING = new Set([502, 503, 504]);
-const WAKE_BUDGET_MS = Number(process.env.HEALTH_WAKE_BUDGET_MS ?? 75_000);
+const WAKE_BUDGET_MS = Number(process.env.HEALTH_WAKE_BUDGET_MS ?? 25_000);
 
 async function probe(url: string) {
   const started = Date.now();
   let last: { status: 'up' | 'down'; httpStatus?: number; error?: string } = { status: 'down' };
   while (Date.now() - started < WAKE_BUDGET_MS) {
     try {
-      const res = await fetch(`${url}/health`, { signal: AbortSignal.timeout(Math.max(5_000, WAKE_BUDGET_MS - (Date.now() - started))) });
+      const res = await fetch(`${url}/health`, { signal: AbortSignal.timeout(Math.max(3_000, WAKE_BUDGET_MS - (Date.now() - started))) });
       await res.body?.cancel().catch(() => undefined);
       if (res.ok) return { status: 'up' as const, httpStatus: res.status, latencyMs: Date.now() - started };
       last = { status: 'down', httpStatus: res.status };
@@ -18,7 +18,7 @@ async function probe(url: string) {
     } catch (err) {
       last = { status: 'down', error: err.message };
     }
-    await new Promise((r) => setTimeout(r, 4_000));
+    await new Promise((r) => setTimeout(r, 3_000));
   }
   return { ...last, latencyMs: Date.now() - started };
 }
