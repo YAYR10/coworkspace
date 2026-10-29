@@ -1,0 +1,33 @@
+# Llama al pipeline reutilizable con los datos de este microservicio.
+name: booking-service
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/booking-service/**'
+      - '.github/workflows/microservicio.yml'
+      - '.github/workflows/svc-booking-service.yml'
+  pull_request:
+    paths:
+      - 'services/booking-service/**'
+      - '.github/workflows/microservicio.yml'
+      - '.github/workflows/svc-booking-service.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  pipeline:
+    uses: ./.github/workflows/microservicio.yml
+    permissions:
+      contents: write
+      packages: write
+    with:
+      service-name: booking-service
+      working-directory: services/booking-service
+      notify-repo: ${{ github.repository }}
+    secrets:
+      RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_BOOKING }}

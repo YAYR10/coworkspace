@@ -1,5 +1,7 @@
 # Analytics Service
 
+[![analytics-service](https://github.com/YAYR10/coworkspace/actions/workflows/svc-analytics-service.yml/badge.svg)](https://github.com/YAYR10/coworkspace/actions/workflows/svc-analytics-service.yml)
+
 KPIs de negocio: ocupación por sede y franja horaria, ingresos por tipo de membresía y retención de miembros.
 
 Forma parte de **CoworkSpace**, plataforma de microservicios para una red de espacios de coworking.
@@ -92,3 +94,14 @@ Restaurar el respaldo: `psql "$DATABASE_URL" -f db/03_backup.sql`. Los scripts s
 | `ANALYTICS_OPEN_HOURS` | Horas de operación por día (denominador de la ocupación) | `14` |
 
 Las credenciales se configuran como variables de entorno en Render; ningún secreto está en el código.
+
+## CI/CD
+
+El workflow [`svc-analytics-service.yml`](../../.github/workflows/svc-analytics-service.yml) invoca el pipeline reutilizable [`microservicio.yml`](../../.github/workflows/microservicio.yml) (`workflow_call`):
+
+1. **test**: lint, pruebas unitarias (Jest) y compilación. Si falla, no se publica ni se despliega nada.
+2. **docker** (`needs: test`, solo en `main`): imagen `ghcr.io/yayr10/coworkspace-analytics-service` etiquetada con el SHA del commit y `latest`.
+3. **deploy** (`needs: docker`, entorno `production`): Render despliega la imagen exacta de ese commit con el secret `RENDER_DEPLOY_HOOK`.
+4. **notify**: evento `repository_dispatch` para que el API Gateway se redespliegue.
+
+Cuando este servicio vive en su propio repositorio, usa `.github/workflows/ci.yml`, que llama al mismo pipeline en `YAYR10/coworkspace-pipelines`.

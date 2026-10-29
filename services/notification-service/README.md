@@ -1,5 +1,7 @@
 # Notification Service
 
+[![notification-service](https://github.com/YAYR10/coworkspace/actions/workflows/svc-notification-service.yml/badge.svg)](https://github.com/YAYR10/coworkspace/actions/workflows/svc-notification-service.yml)
+
 Envía los correos de la plataforma: confirmaciones y cancelaciones de reservas, recordatorios antes de cada reserva y avisos de vencimiento de la membresía.
 
 Forma parte de **CoworkSpace**, plataforma de microservicios para una red de espacios de coworking.
@@ -93,3 +95,14 @@ Restaurar el respaldo: `psql "$DATABASE_URL" -f db/03_backup.sql`. Los scripts s
 | `MEMBERSHIP_WARNING_DAYS` | Días antes del vencimiento para el aviso | `3` |
 
 Las credenciales se configuran como variables de entorno en Render; ningún secreto está en el código.
+
+## CI/CD
+
+El workflow [`svc-notification-service.yml`](../../.github/workflows/svc-notification-service.yml) invoca el pipeline reutilizable [`microservicio.yml`](../../.github/workflows/microservicio.yml) (`workflow_call`):
+
+1. **test**: lint, pruebas unitarias (Jest) y compilación. Si falla, no se publica ni se despliega nada.
+2. **docker** (`needs: test`, solo en `main`): imagen `ghcr.io/yayr10/coworkspace-notification-service` etiquetada con el SHA del commit y `latest`.
+3. **deploy** (`needs: docker`, entorno `production`): Render despliega la imagen exacta de ese commit con el secret `RENDER_DEPLOY_HOOK`.
+4. **notify**: evento `repository_dispatch` para que el API Gateway se redespliegue.
+
+Cuando este servicio vive en su propio repositorio, usa `.github/workflows/ci.yml`, que llama al mismo pipeline en `YAYR10/coworkspace-pipelines`.
