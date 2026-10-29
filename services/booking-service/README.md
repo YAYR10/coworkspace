@@ -35,7 +35,7 @@ psql "$DATABASE_URL" -f db/02_seed.sql   # datos de ejemplo (opcional)
 npm run start:dev
 ```
 
-Con Docker (todo el sistema): `docker compose up --build` desde la raíz del proyecto.
+Con Docker: `docker compose up --build` levanta este servicio con su propia base de datos (cargada con `db/01_schema.sql` y `db/02_seed.sql`) y Redis. Los servicios de los que depende se configuran con sus variables `*_SERVICE_URL`; el sistema completo se levanta con el `docker-compose.yml` del repositorio principal.
 
 ```bash
 npm test         # pruebas unitarias (Jest)
@@ -96,6 +96,7 @@ Restaurar el respaldo: `psql "$DATABASE_URL" -f db/03_backup.sql`. Los scripts s
 | `SAGA_TIMEOUT_MINUTES` | Minutos para completar el cobro antes de liberar el horario | `20` |
 | `MAX_BOOKING_HOURS` | Duración máxima de una reserva | `12` |
 | `OPTIMISTIC_LOCK_MAX_RETRIES` | Reintentos del bloqueo optimista | `5` |
+| `SPACE_RETRY_BUDGET_MS` | Tiempo total de reintentos mientras Space despierta (opcional) | `45000` |
 
 Las credenciales se configuran como variables de entorno en Render; ningún secreto está en el código.
 

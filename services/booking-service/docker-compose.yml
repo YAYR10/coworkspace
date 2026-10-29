@@ -1,0 +1,44 @@
+# Ejecuta booking-service SOLO, con su propia base de datos (PostgreSQL) y Redis:
+#   docker compose up --build
+# La base se crea con db/01_schema.sql y se llena con db/02_seed.sql (datos de ejemplo).
+# Para el sistema completo (los 9 servicios), usa el docker-compose.yml del repositorio coworkspace.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: cowork
+      POSTGRES_PASSWORD: cowork
+      POSTGRES_DB: coworkspace
+    ports: ["5432:5432"]
+    volumes:
+      - ./db/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./db/02_seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cowork -d coworkspace"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
+  booking-service:
+    build: .
+    ports: ["3003:3003"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    environment:
+      PORT: 3003
+      SERVICE_NAME: booking-service
+      DB_SCHEMA: booking
+      DATABASE_URL: postgresql://cowork:cowork@postgres:5432/coworkspace
+      REDIS_URL: redis://redis:6379
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
+      SPACE_SERVICE_URL: ${SPACE_SERVICE_URL:-http://host.docker.internal:3002}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
