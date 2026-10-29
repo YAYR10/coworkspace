@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict tjqKSh5Wu93WVY3pOtmQnacQ8WT2FOLSlfExFmSW4XRhJrirKJXPqbNc5Ub6ZO8
+\restrict 1LfXOFBK3l6rfDzZ56iTpse5uH08KOT82meCSfU1K7kG9K3sSR4R1tIVZRdUn9N
 
 
 SET statement_timeout = 0;
@@ -100,27 +100,27 @@ CREATE TABLE notification.reminders (
 
 INSERT INTO notification.notifications VALUES ('93000000-0000-4000-8000-000000000001', 'demo-evt-0001', 'membership.activated', 'a0000000-0000-4000-8000-000000000003', 'ana@demo.co', 'Bienvenido a CoworkSpace: plan Puesto flexible', 'Hola Ana,
 
-tu plan Puesto flexible ya está activo. Ya puedes reservar desde la aplicación.', 'LOGGED', NULL, '2026-08-01 22:32:23.695');
+tu plan Puesto flexible ya está activo. Ya puedes reservar desde la aplicación.', 'LOGGED', NULL, '2026-08-02 20:13:50.454');
 INSERT INTO notification.notifications VALUES ('93000000-0000-4000-8000-000000000002', 'demo-evt-0002', 'booking.confirmed', 'a0000000-0000-4000-8000-000000000003', 'ana@demo.co', 'Reserva confirmada: Sala Sinú', 'Hola Ana,
 
 tu reserva de Sala Sinú en Sede Centro está confirmada.
 
-Como tu plan no incluye este espacio, se cobró un adicional de $ 100.000.', 'LOGGED', NULL, '2026-10-27 22:32:23.695');
+Como tu plan no incluye este espacio, se cobró un adicional de $ 100.000.', 'LOGGED', NULL, '2026-10-28 20:13:50.454');
 INSERT INTO notification.notifications VALUES ('93000000-0000-4000-8000-000000000003', 'demo-evt-0003', 'booking.cancelled', 'a0000000-0000-4000-8000-000000000003', 'ana@demo.co', 'Tu reserva de Sala Monserrate fue cancelada', 'Hola Ana,
 
 tu reserva quedó cancelada.
 
-No pudimos aprobar el cobro adicional, así que la reserva se canceló y el horario quedó libre.', 'LOGGED', NULL, '2026-10-26 22:32:23.695');
+No pudimos aprobar el cobro adicional, así que la reserva se canceló y el horario quedó libre.', 'LOGGED', NULL, '2026-10-27 20:13:50.454');
 INSERT INTO notification.notifications VALUES ('93000000-0000-4000-8000-000000000004', 'demo-evt-0004', 'membership.expired', 'a0000000-0000-4000-8000-000000000005', 'mariana@demo.co', 'Tu plan venció', 'Hola Mariana,
 
-tu plan llegó a su fin y no se renovó.', 'LOGGED', NULL, '2026-10-14 22:32:23.695');
+tu plan llegó a su fin y no se renovó.', 'LOGGED', NULL, '2026-10-15 20:13:50.454');
 
 
 --
 -- Data for Name: reminders; Type: TABLE DATA; Schema: notification; Owner: -
 --
 
-INSERT INTO notification.reminders VALUES ('94000000-0000-4000-8000-000000000001', 'BOOKING_REMINDER', 'f0000000-0000-4000-8000-000000000002', 'a0000000-0000-4000-8000-000000000003', '2026-10-29 18:00:00', '{"endTime": "2026-10-29T21:00:00.000Z", "memberId": "a0000000-0000-4000-8000-000000000003", "bookingId": "f0000000-0000-4000-8000-000000000002", "startTime": "2026-10-29T19:00:00.000Z", "locationId": "c0000000-0000-4000-8000-000000000001", "resourceId": "d0000000-0000-4000-8000-000000000001", "resourceType": "ROOM"}', 'PENDING', NULL, '2026-10-27 22:32:23.697');
+INSERT INTO notification.reminders VALUES ('94000000-0000-4000-8000-000000000001', 'BOOKING_REMINDER', 'f0000000-0000-4000-8000-000000000002', 'a0000000-0000-4000-8000-000000000003', '2026-10-30 18:00:00', '{"endTime": "2026-10-30T21:00:00.000Z", "memberId": "a0000000-0000-4000-8000-000000000003", "bookingId": "f0000000-0000-4000-8000-000000000002", "startTime": "2026-10-30T19:00:00.000Z", "locationId": "c0000000-0000-4000-8000-000000000001", "resourceId": "d0000000-0000-4000-8000-000000000001", "resourceType": "ROOM"}', 'PENDING', NULL, '2026-10-28 20:13:50.456');
 
 
 --
@@ -171,5 +171,5 @@ CREATE INDEX reminders_status_send_at_idx ON notification.reminders USING btree 
 -- PostgreSQL database dump complete
 --
 
-\unrestrict tjqKSh5Wu93WVY3pOtmQnacQ8WT2FOLSlfExFmSW4XRhJrirKJXPqbNc5Ub6ZO8
+\unrestrict 1LfXOFBK3l6rfDzZ56iTpse5uH08KOT82meCSfU1K7kG9K3sSR4R1tIVZRdUn9N
 

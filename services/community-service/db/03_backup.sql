@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 85CDqHhyitGybhC0AS5alRfmqrLz6YZkzlX16XaWj1Z61QgbdRZdwyiwXazo5FN
+\restrict iz9XjlppplgVhdCFqYuntgyC4ziVlVTbzkR1RoRcnO3vdfWUVEHMfi9FlBMixgf
 
 
 SET statement_timeout = 0;
@@ -93,33 +93,33 @@ CREATE TABLE community.messages (
 -- Data for Name: event_attendees; Type: TABLE DATA; Schema: community; Owner: -
 --
 
-INSERT INTO community.event_attendees VALUES ('97000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000003', '2026-10-26 22:32:36.167');
-INSERT INTO community.event_attendees VALUES ('97000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000004', '2026-10-27 22:32:36.167');
-INSERT INTO community.event_attendees VALUES ('97000000-0000-4000-8000-000000000002', 'a0000000-0000-4000-8000-000000000004', '2026-10-27 22:32:36.167');
+INSERT INTO community.event_attendees VALUES ('97000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000003', '2026-10-27 20:14:02.958');
+INSERT INTO community.event_attendees VALUES ('97000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000004', '2026-10-28 20:14:02.958');
+INSERT INTO community.event_attendees VALUES ('97000000-0000-4000-8000-000000000002', 'a0000000-0000-4000-8000-000000000004', '2026-10-28 20:14:02.958');
 
 
 --
 -- Data for Name: events; Type: TABLE DATA; Schema: community; Owner: -
 --
 
-INSERT INTO community.events VALUES ('97000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000001', 'Café de emprendedores', 'Presenta tu proyecto en 3 minutos y conoce a otros miembros.', '2026-10-31 23:00:00', 90, 30, 'a0000000-0000-4000-8000-000000000002', false, '2026-10-25 22:32:36.165');
-INSERT INTO community.events VALUES ('97000000-0000-4000-8000-000000000002', 'c0000000-0000-4000-8000-000000000002', 'Taller: facturación electrónica para independientes', NULL, '2026-11-03 14:00:00', 120, 20, 'a0000000-0000-4000-8000-000000000002', false, '2026-10-27 22:32:36.165');
+INSERT INTO community.events VALUES ('97000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000001', 'Café de emprendedores', 'Presenta tu proyecto en 3 minutos y conoce a otros miembros.', '2026-11-01 23:00:00', 90, 30, 'a0000000-0000-4000-8000-000000000002', false, '2026-10-26 20:14:02.957');
+INSERT INTO community.events VALUES ('97000000-0000-4000-8000-000000000002', 'c0000000-0000-4000-8000-000000000002', 'Taller: facturación electrónica para independientes', NULL, '2026-11-04 14:00:00', 120, 20, 'a0000000-0000-4000-8000-000000000002', false, '2026-10-28 20:14:02.957');
 
 
 --
 -- Data for Name: member_directory; Type: TABLE DATA; Schema: community; Owner: -
 --
 
-INSERT INTO community.member_directory VALUES ('a0000000-0000-4000-8000-000000000003', 'Ana Gómez', 'Diseñadora UX', 'Diseño productos digitales para fintech. Siempre dispuesta a un café.', 'Estudio Sinú', '{UX,Figma,Research}', 'c0000000-0000-4000-8000-000000000001', NULL, true, '2026-08-09 22:32:36.161', '2026-10-23 22:32:36.161');
-INSERT INTO community.member_directory VALUES ('a0000000-0000-4000-8000-000000000004', 'Carlos Ruiz', 'Desarrollador backend', NULL, 'Freelance', '{Node.js,PostgreSQL}', 'c0000000-0000-4000-8000-000000000002', NULL, true, '2026-09-08 22:32:36.161', '2026-10-26 22:32:36.161');
+INSERT INTO community.member_directory VALUES ('a0000000-0000-4000-8000-000000000003', 'Ana Gómez', 'Diseñadora UX', 'Diseño productos digitales para fintech. Siempre dispuesta a un café.', 'Estudio Sinú', '{UX,Figma,Research}', 'c0000000-0000-4000-8000-000000000001', NULL, true, '2026-08-10 20:14:02.955', '2026-10-24 20:14:02.955');
+INSERT INTO community.member_directory VALUES ('a0000000-0000-4000-8000-000000000004', 'Carlos Ruiz', 'Desarrollador backend', NULL, 'Freelance', '{Node.js,PostgreSQL}', 'c0000000-0000-4000-8000-000000000002', NULL, true, '2026-09-09 20:14:02.955', '2026-10-27 20:14:02.955');
 
 
 --
 -- Data for Name: messages; Type: TABLE DATA; Schema: community; Owner: -
 --
 
-INSERT INTO community.messages VALUES ('98000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000004', 'a0000000-0000-4000-8000-000000000003', 'Hola Ana, vi que haces UX. ¿Te interesa revisar la app que estoy construyendo?', '2026-10-28 02:32:36.169', '2026-10-27 22:32:36.169');
-INSERT INTO community.messages VALUES ('98000000-0000-4000-8000-000000000002', 'a0000000-0000-4000-8000-000000000003', 'a0000000-0000-4000-8000-000000000004', '¡Claro! Nos vemos en el Café de emprendedores.', NULL, '2026-10-28 04:32:36.169');
+INSERT INTO community.messages VALUES ('98000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000004', 'a0000000-0000-4000-8000-000000000003', 'Hola Ana, vi que haces UX. ¿Te interesa revisar la app que estoy construyendo?', '2026-10-29 00:14:02.959', '2026-10-28 20:14:02.959');
+INSERT INTO community.messages VALUES ('98000000-0000-4000-8000-000000000002', 'a0000000-0000-4000-8000-000000000003', 'a0000000-0000-4000-8000-000000000004', '¡Claro! Nos vemos en el Café de emprendedores.', NULL, '2026-10-29 02:14:02.959');
 
 
 --
@@ -194,5 +194,5 @@ ALTER TABLE ONLY community.event_attendees
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 85CDqHhyitGybhC0AS5alRfmqrLz6YZkzlX16XaWj1Z61QgbdRZdwyiwXazo5FN
+\unrestrict iz9XjlppplgVhdCFqYuntgyC4ziVlVTbzkR1RoRcnO3vdfWUVEHMfi9FlBMixgf
 
