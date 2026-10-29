@@ -51,7 +51,7 @@ El detalle de cada endpoint está en el README de cada microservicio.
 
 ## Variables de entorno
 
-Ver `.env.example`: `PORT`, `JWT_SECRET`, `INTERNAL_API_KEY`, `RATE_LIMIT_PER_MINUTE`, `LOGIN_RATE_LIMIT_PER_MINUTE`, `PROXY_TIMEOUT_MS`, `CORS_ORIGIN` y la URL de cada microservicio (`*_SERVICE_URL`).
+Ver `.env.example`: `PORT`, `JWT_SECRET`, `INTERNAL_API_KEY`, `RATE_LIMIT_PER_MINUTE`, `LOGIN_RATE_LIMIT_PER_MINUTE`, `PROXY_TIMEOUT_MS`, `CORS_ORIGIN`, `HEALTH_WAKE_BUDGET_MS` y la URL de cada microservicio (`*_SERVICE_URL`).
 
 ## CI/CD
 
