@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict eJP0NhHaSndJfUFzC55mfyffbTWP7YxgXOsoSEJqA86n6uo1LWCxybh6Ry5sbK0
+\restrict TGOzEqf4ZO1AazXE9I36RphaDr2g4Ro6ZaiGazhueXPDgdKytrIF50xh6vIlgbb
 
 
 SET statement_timeout = 0;
@@ -104,8 +104,8 @@ INSERT INTO space.desks VALUES ('e0000000-0000-4000-8000-000000000002', 'c000000
 -- Data for Name: locations; Type: TABLE DATA; Schema: space; Owner: -
 --
 
-INSERT INTO space.locations VALUES ('c0000000-0000-4000-8000-000000000001', 'Sede Centro', 'Colombia', 'Montería', 'Cra 3 # 27-10', 'A dos cuadras de la Ronda del Sinú, con terraza.', '{"WiFi de alta velocidad","Café y agua",Recepción,Parqueadero,Lockers}', true, NULL, 8.7575, -75.889, '2026-06-30 22:32:06.469');
-INSERT INTO space.locations VALUES ('c0000000-0000-4000-8000-000000000002', 'Sede Chicó', 'Colombia', 'Bogotá', 'Cl 93 # 11-26', 'Frente al Parque de la 93.', '{"WiFi de alta velocidad","Acceso 24/7","Cabinas telefónicas"}', true, NULL, 4.6767, -74.0483, '2026-07-20 22:32:06.469');
+INSERT INTO space.locations VALUES ('c0000000-0000-4000-8000-000000000001', 'Sede Centro', 'Colombia', 'Montería', 'Cra 3 # 27-10', 'A dos cuadras de la Ronda del Sinú, con terraza.', '{"WiFi de alta velocidad","Café y agua",Recepción,Parqueadero,Lockers}', true, NULL, 8.7575, -75.889, '2026-07-01 20:13:32.08');
+INSERT INTO space.locations VALUES ('c0000000-0000-4000-8000-000000000002', 'Sede Chicó', 'Colombia', 'Bogotá', 'Cl 93 # 11-26', 'Frente al Parque de la 93.', '{"WiFi de alta velocidad","Acceso 24/7","Cabinas telefónicas"}', true, NULL, 4.6767, -74.0483, '2026-07-21 20:13:32.08');
 
 
 --
@@ -204,5 +204,5 @@ ALTER TABLE ONLY space.rooms
 -- PostgreSQL database dump complete
 --
 
-\unrestrict eJP0NhHaSndJfUFzC55mfyffbTWP7YxgXOsoSEJqA86n6uo1LWCxybh6Ry5sbK0
+\unrestrict TGOzEqf4ZO1AazXE9I36RphaDr2g4Ro6ZaiGazhueXPDgdKytrIF50xh6vIlgbb
 
