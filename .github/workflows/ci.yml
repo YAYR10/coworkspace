@@ -1,48 +1,21 @@
-# CI de este microservicio cuando vive en su propio repositorio.
-# (En el monorepo coworkspace lo ejecuta .github/workflows/ci-cd.yml.)
-name: CI analytics-service
+# CI/CD de analytics-service en su propio repositorio: invoca el pipeline reutilizable
+# del repositorio YAYR10/coworkspace-pipelines (cambiarlo allá actualiza todos los servicios).
+name: analytics-service
 
 on:
   push:
     branches: [main]
   pull_request:
-
-permissions:
-  contents: read
-  packages: write
+  workflow_dispatch:
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-      - run: npm ci
-      - run: npx prisma generate
-      - run: npm run lint
-      - run: npm test -- --ci
-      - run: npm run build
-
-  image:
-    needs: test
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: ghcr.io/yayr10/coworkspace-analytics-service:latest
-      - name: Desplegar en Render
-        env:
-          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
-        run: if [ -n "$HOOK" ]; then curl -fsS -X POST "$HOOK"; else echo "Sin RENDER_DEPLOY_HOOK"; fi
+  pipeline:
+    uses: YAYR10/coworkspace-pipelines/.github/workflows/microservicio.yml@main
+    permissions:
+      contents: write
+      packages: write
+    with:
+      service-name: analytics-service
+      notify-repo: YAYR10/coworkspace-api-gateway
+    # Secrets de este repositorio: RENDER_DEPLOY_HOOK y DISPATCH_TOKEN (token con permiso sobre el gateway)
+    secrets: inherit
