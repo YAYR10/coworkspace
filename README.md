@@ -1,5 +1,7 @@
 # API Gateway
 
+[![api-gateway](https://github.com/YAYR10/coworkspace/actions/workflows/svc-api-gateway.yml/badge.svg)](https://github.com/YAYR10/coworkspace/actions/workflows/svc-api-gateway.yml)
+
 Punto de entrada único de **CoworkSpace**. Valida el JWT, aplica rate limiting y enruta cada petición `/api/*` al microservicio dueño del recurso.
 
 | | |
@@ -50,3 +52,14 @@ El detalle de cada endpoint está en el README de cada microservicio.
 ## Variables de entorno
 
 Ver `.env.example`: `PORT`, `JWT_SECRET`, `INTERNAL_API_KEY`, `RATE_LIMIT_PER_MINUTE`, `LOGIN_RATE_LIMIT_PER_MINUTE`, `PROXY_TIMEOUT_MS`, `CORS_ORIGIN` y la URL de cada microservicio (`*_SERVICE_URL`).
+
+## CI/CD
+
+El workflow [`svc-api-gateway.yml`](../../.github/workflows/svc-api-gateway.yml) invoca el pipeline reutilizable [`microservicio.yml`](../../.github/workflows/microservicio.yml) (`workflow_call`):
+
+1. **test**: lint, pruebas unitarias (Jest) y compilación. Si falla, no se publica ni se despliega nada.
+2. **docker** (`needs: test`, solo en `main`): imagen `ghcr.io/yayr10/coworkspace-api-gateway` etiquetada con el SHA del commit y `latest`.
+3. **deploy** (`needs: docker`, entorno `production`): Render despliega la imagen exacta de ese commit con el secret `RENDER_DEPLOY_HOOK`.
+
+
+Cuando este servicio vive en su propio repositorio, usa `.github/workflows/ci.yml`, que llama al mismo pipeline en `YAYR10/coworkspace-pipelines`.
