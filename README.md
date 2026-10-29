@@ -1,5 +1,7 @@
 # CoworkSpace – Plataforma de gestión de espacios de coworking
 
+[![api-gateway](https://github.com/YAYR10/coworkspace/actions/workflows/svc-api-gateway.yml/badge.svg)](https://github.com/YAYR10/coworkspace/actions/workflows/svc-api-gateway.yml) [![membership-service](https://github.com/YAYR10/coworkspace/actions/workflows/svc-membership-service.yml/badge.svg)](https://github.com/YAYR10/coworkspace/actions/workflows/svc-membership-service.yml) [![space-service](https://github.com/YAYR10/coworkspace/actions/workflows/svc-space-service.yml/badge.svg)](https://github.com/YAYR10/coworkspace/actions/workflows/svc-space-service.yml) [![booking-service](https://github.com/YAYR10/coworkspace/actions/workflows/svc-booking-service.yml/badge.svg)](https://github.com/YAYR10/coworkspace/actions/workflows/svc-booking-service.yml) [![billing-service](https://github.com/YAYR10/coworkspace/actions/workflows/svc-billing-service.yml/badge.svg)](https://github.com/YAYR10/coworkspace/actions/workflows/svc-billing-service.yml) [![notification-service](https://github.com/YAYR10/coworkspace/actions/workflows/svc-notification-service.yml/badge.svg)](https://github.com/YAYR10/coworkspace/actions/workflows/svc-notification-service.yml) [![access-control-service](https://github.com/YAYR10/coworkspace/actions/workflows/svc-access-control-service.yml/badge.svg)](https://github.com/YAYR10/coworkspace/actions/workflows/svc-access-control-service.yml) [![community-service](https://github.com/YAYR10/coworkspace/actions/workflows/svc-community-service.yml/badge.svg)](https://github.com/YAYR10/coworkspace/actions/workflows/svc-community-service.yml) [![analytics-service](https://github.com/YAYR10/coworkspace/actions/workflows/svc-analytics-service.yml/badge.svg)](https://github.com/YAYR10/coworkspace/actions/workflows/svc-analytics-service.yml) [![Integración](https://github.com/YAYR10/coworkspace/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/YAYR10/coworkspace/actions/workflows/ci-cd.yml)
+
 Red de espacios de coworking construida con **8 microservicios**, un API Gateway y una aplicación web. Cada microservicio tiene su propio README, su `.env.example` y sus scripts de base de datos en `services/<servicio>/`.
 
 | Servicio | Puerto | Responsabilidad | Schema BD | Despliegue |
@@ -109,7 +111,7 @@ cd services/<servicio>
 npm ci && npx prisma generate
 npm run lint && npm test
 ```
-El pipeline de GitHub Actions corre lint, Jest y build de los 9 servicios en paralelo, la prueba de carga k6 del Booking Service con todo el sistema levantado, y luego publica y despliega las imágenes.
+Cada push o pull request corre el pipeline de cada servicio afectado (lint, Jest, build) y la integración del sistema completo (k6 y prueba de punta a punta). Ver [CI/CD](#cicd-con-github-actions).
 
 ### Base de datos: scripts, datos de ejemplo y respaldo
 Cada servicio tiene en `db/`: `01_schema.sql` (esquema generado desde Prisma), `02_seed.sql` (datos de ejemplo idempotentes) y `03_backup.sql` (respaldo `pg_dump`). El workflow **Scripts de base de datos** (`scripts/db-scripts.sh`) los regenera, carga todo en un PostgreSQL limpio, corre el ETL de Analytics sobre esos datos y guarda los archivos.
@@ -171,9 +173,29 @@ El primer administrador se crea con `ADMIN_EMAIL` / `ADMIN_PASSWORD`. Después, 
 
 La lista completa (método, ruta, quién puede usarla) está en el README de cada microservicio. Todos se consumen por el Gateway con el prefijo `/api`; cada servicio expone además `GET /health` y `GET /metrics` (Prometheus).
 
+## CI/CD con GitHub Actions
+
+```mermaid
+flowchart LR
+  P[push / pull request] --> T[test: lint · Jest · build]
+  T -- solo main --> D[docker: imagen ghcr.io/…:SHA]
+  D --> R[deploy: Render despliega esa imagen · entorno production]
+  R --> N[notify: repository_dispatch]
+  N --> G[api-gateway se redespliega]
+  T -. falla .-> X[(no se publica ni se despliega)]
+```
+
+- **Un pipeline reutilizable para todos:** [`microservicio.yml`](.github/workflows/microservicio.yml) (`workflow_call`) define `test → docker → deploy → notify`. Cada servicio lo invoca desde su propio workflow (`svc-<servicio>.yml`) pasando su nombre y su secret. Cambiar el proceso una vez actualiza los 9 servicios.
+- **Repositorio por servicio:** cuando cada microservicio vive en su propio repositorio, su `.github/workflows/ci.yml` llama al mismo pipeline en `YAYR10/coworkspace-pipelines` (ver [`pipelines/`](pipelines) y `scripts/split-repos.sh`).
+- **Calidad antes de desplegar:** `docker` tiene `needs: test` y `deploy` tiene `needs: docker`. Si una prueba falla, nada se publica ni se despliega. Los pull requests solo corren `test`.
+- **Versiones:** cada imagen se etiqueta con el SHA del commit y Render despliega exactamente esa etiqueta (rollback = volver a desplegar un SHA anterior).
+- **Credenciales:** solo en *Secrets* (`RENDER_DEPLOY_HOOK_*`). GHCR usa el `GITHUB_TOKEN` automático; ningún secreto está en el YAML ni en el código.
+- **Entorno `production`:** en *Settings → Environments → production → Required reviewers* se puede exigir aprobación manual antes de cada despliegue.
+- **Integración:** [`ci-cd.yml`](.github/workflows/ci-cd.yml) levanta los 9 servicios con Docker Compose y corre la prueba de carga k6 y la prueba de punta a punta.
+
 ## Despliegue (GitHub Actions → GHCR → Render)
 
-1. **Sube el repo a GitHub** (rama `main`). El workflow `.github/workflows/ci-cd.yml` corre lint, tests, la prueba k6 y publica las 9 imágenes en `ghcr.io/<tu-usuario>/coworkspace-<servicio>`.
+1. **Sube el repo a GitHub** (rama `main`). Los workflows `svc-*.yml` corren las pruebas y publican las 9 imágenes en `ghcr.io/<tu-usuario>/coworkspace-<servicio>`.
 2. **Haz públicas las imágenes:** en GitHub → tu perfil → *Packages* → cada paquete → *Package settings* → *Change visibility* → Public. (O configura una credencial de registro en Render.)
 3. **Crea la infraestructura en Render:** en Render: *New → Blueprint* → selecciona el repo. Esto crea la BD PostgreSQL, Redis (Key Value), los 9 servicios, el sitio web y los secretos compartidos.
 4. **Completa las variables marcadas `sync: false`** que Render te pedirá:

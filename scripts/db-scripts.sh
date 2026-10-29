@@ -39,6 +39,18 @@ for svc in "${ORDER[@]}"; do
   echo "::endgroup::"
 done
 
+# Muestra de las bases de origen para correr Analytics solo (su docker-compose la carga primero)
+{
+  echo "-- Muestra de las bases de origen (Membership, Space, Booking y Billing) para correr Analytics solo."
+  echo "-- Analytics las lee en SOLO LECTURA; en producción, SOURCE_DATABASE_URL apunta a la réplica de lectura."
+  for src in membership-service space-service booking-service billing-service; do
+    for f in 01_schema.sql 02_seed.sql; do
+      echo; echo "-- ===== $src/db/$f ====="
+      cat "$ROOT/services/$src/db/$f"
+    done
+  done
+} > "$ROOT/services/analytics-service/db/00_source_sample.sql"
+
 # El ETL de Analytics lee las bases de los demás servicios en solo lectura y calcula los KPIs
 echo "::group::ETL de Analytics sobre los datos de ejemplo"
 (cd "$ROOT/services/analytics-service" && npm run build --silent && \

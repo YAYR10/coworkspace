@@ -1,5 +1,7 @@
 # Billing Service
 
+[![billing-service](https://github.com/YAYR10/coworkspace/actions/workflows/svc-billing-service.yml/badge.svg)](https://github.com/YAYR10/coworkspace/actions/workflows/svc-billing-service.yml)
+
 Facturación recurrente de membresías con factura electrónica, cargos adicionales por uso fuera del plan y pasarela de pagos Wompi (sandbox).
 
 Forma parte de **CoworkSpace**, plataforma de microservicios para una red de espacios de coworking.
@@ -34,7 +36,7 @@ psql "$DATABASE_URL" -f db/02_seed.sql   # datos de ejemplo (opcional)
 npm run start:dev
 ```
 
-Con Docker (todo el sistema): `docker compose up --build` desde la raíz del proyecto.
+Con Docker: `docker compose up --build` levanta este servicio con su propia base de datos (cargada con `db/01_schema.sql` y `db/02_seed.sql`) y Redis. Los servicios de los que depende se configuran con sus variables `*_SERVICE_URL`; el sistema completo se levanta con el `docker-compose.yml` del repositorio principal.
 
 ```bash
 npm test         # pruebas unitarias (Jest)
@@ -104,5 +106,17 @@ Restaurar el respaldo: `psql "$DATABASE_URL" -f db/03_backup.sql`. Los scripts s
 | `WOMPI_API_URL` | API de Wompi (por defecto sandbox o producción según la llave) | — |
 | `MEMBERSHIP_SERVICE_URL` | Membership (datos del plan y activación después del pago) | `http://localhost:3001` |
 | `PAYMENT_REDIRECT_URL` | Página a la que vuelve el checkout | `http://localhost:5173/pago` |
+| `MEMBERSHIP_TIMEOUT_MS` | Tiempo máximo de la llamada a Membership (opcional) | `60000` |
 
 Las credenciales se configuran como variables de entorno en Render; ningún secreto está en el código.
+
+## CI/CD
+
+El workflow [`svc-billing-service.yml`](../../.github/workflows/svc-billing-service.yml) invoca el pipeline reutilizable [`microservicio.yml`](../../.github/workflows/microservicio.yml) (`workflow_call`):
+
+1. **test**: lint, pruebas unitarias (Jest) y compilación. Si falla, no se publica ni se despliega nada.
+2. **docker** (`needs: test`, solo en `main`): imagen `ghcr.io/yayr10/coworkspace-billing-service` etiquetada con el SHA del commit y `latest`.
+3. **deploy** (`needs: docker`, entorno `production`): Render despliega la imagen exacta de ese commit con el secret `RENDER_DEPLOY_HOOK`.
+4. **notify**: evento `repository_dispatch` para que el API Gateway se redespliegue.
+
+Cuando este servicio vive en su propio repositorio, usa `.github/workflows/ci.yml`, que llama al mismo pipeline en `YAYR10/coworkspace-pipelines`.

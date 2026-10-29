@@ -1,5 +1,7 @@
 # Booking Service
 
+[![booking-service](https://github.com/YAYR10/coworkspace/actions/workflows/svc-booking-service.yml/badge.svg)](https://github.com/YAYR10/coworkspace/actions/workflows/svc-booking-service.yml)
+
 Reservas de salas y puestos por horas con bloqueo optimista (sin dobles reservas), lista de espera y saga coreografiada con Billing.
 
 Forma parte de **CoworkSpace**, plataforma de microservicios para una red de espacios de coworking.
@@ -33,7 +35,7 @@ psql "$DATABASE_URL" -f db/02_seed.sql   # datos de ejemplo (opcional)
 npm run start:dev
 ```
 
-Con Docker (todo el sistema): `docker compose up --build` desde la raíz del proyecto.
+Con Docker: `docker compose up --build` levanta este servicio con su propia base de datos (cargada con `db/01_schema.sql` y `db/02_seed.sql`) y Redis. Los servicios de los que depende se configuran con sus variables `*_SERVICE_URL`; el sistema completo se levanta con el `docker-compose.yml` del repositorio principal.
 
 ```bash
 npm test         # pruebas unitarias (Jest)
@@ -94,5 +96,17 @@ Restaurar el respaldo: `psql "$DATABASE_URL" -f db/03_backup.sql`. Los scripts s
 | `SAGA_TIMEOUT_MINUTES` | Minutos para completar el cobro antes de liberar el horario | `20` |
 | `MAX_BOOKING_HOURS` | Duración máxima de una reserva | `12` |
 | `OPTIMISTIC_LOCK_MAX_RETRIES` | Reintentos del bloqueo optimista | `5` |
+| `SPACE_RETRY_BUDGET_MS` | Tiempo total de reintentos mientras Space despierta (opcional) | `45000` |
 
 Las credenciales se configuran como variables de entorno en Render; ningún secreto está en el código.
+
+## CI/CD
+
+El workflow [`svc-booking-service.yml`](../../.github/workflows/svc-booking-service.yml) invoca el pipeline reutilizable [`microservicio.yml`](../../.github/workflows/microservicio.yml) (`workflow_call`):
+
+1. **test**: lint, pruebas unitarias (Jest) y compilación. Si falla, no se publica ni se despliega nada.
+2. **docker** (`needs: test`, solo en `main`): imagen `ghcr.io/yayr10/coworkspace-booking-service` etiquetada con el SHA del commit y `latest`.
+3. **deploy** (`needs: docker`, entorno `production`): Render despliega la imagen exacta de ese commit con el secret `RENDER_DEPLOY_HOOK`.
+4. **notify**: evento `repository_dispatch` para que el API Gateway se redespliegue.
+
+Cuando este servicio vive en su propio repositorio, usa `.github/workflows/ci.yml`, que llama al mismo pipeline en `YAYR10/coworkspace-pipelines`.

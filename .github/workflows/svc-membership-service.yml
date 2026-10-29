@@ -1,0 +1,33 @@
+# Llama al pipeline reutilizable con los datos de este microservicio.
+name: membership-service
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/membership-service/**'
+      - '.github/workflows/microservicio.yml'
+      - '.github/workflows/svc-membership-service.yml'
+  pull_request:
+    paths:
+      - 'services/membership-service/**'
+      - '.github/workflows/microservicio.yml'
+      - '.github/workflows/svc-membership-service.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  pipeline:
+    uses: ./.github/workflows/microservicio.yml
+    permissions:
+      contents: write
+      packages: write
+    with:
+      service-name: membership-service
+      working-directory: services/membership-service
+      notify-repo: ${{ github.repository }}
+    secrets:
+      RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_MEMBERSHIP }}

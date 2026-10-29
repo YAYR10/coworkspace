@@ -1,0 +1,159 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Pipeline REUTILIZABLE de un microservicio de CoworkSpace (workflow_call).
+# Lo invocan los 9 microservicios: cambiar el proceso aquí actualiza todos.
+#   test   → lint, pruebas unitarias (Jest) y compilación
+#   docker → imagen en GHCR etiquetada con el SHA del commit (y latest)   [needs: test]
+#   deploy → Render despliega EXACTAMENTE la imagen de ese commit          [needs: docker]
+#   notify → repository_dispatch: avisa al API Gateway para que se redespliegue
+# docker y deploy solo corren en push a main: un pull request nunca despliega.
+# Credenciales: solo en Secrets (RENDER_DEPLOY_HOOK, DISPATCH_TOKEN); GHCR usa el GITHUB_TOKEN.
+# ─────────────────────────────────────────────────────────────────────────────
+name: Pipeline de microservicio
+
+on:
+  workflow_call:
+    inputs:
+      service-name:
+        description: Nombre del microservicio (p. ej. booking-service)
+        type: string
+        required: true
+      working-directory:
+        description: Carpeta del servicio ('.' cuando el servicio tiene su propio repositorio)
+        type: string
+        default: '.'
+      node-version:
+        type: string
+        default: '20'
+      environment:
+        description: Entorno de GitHub del despliegue (se le puede exigir aprobación manual)
+        type: string
+        default: production
+      notify-repo:
+        description: Repositorio al que se envía repository_dispatch tras desplegar ('' = ninguno)
+        type: string
+        default: ''
+    secrets:
+      RENDER_DEPLOY_HOOK:
+        description: URL del Deploy Hook del servicio en Render
+        required: false
+      DISPATCH_TOKEN:
+        description: Token con permiso sobre notify-repo (si es otro repositorio)
+        required: false
+    outputs:
+      image:
+        description: Imagen publicada (con el SHA del commit)
+        value: ${{ jobs.docker.outputs.image }}
+
+jobs:
+  test:
+    name: Pruebas (lint, Jest, build)
+    if: github.event_name != 'repository_dispatch'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+      - name: Instalar dependencias
+        run: npm ci
+      - name: Generar cliente de Prisma
+        if: hashFiles(format('{0}/prisma/schema.prisma', inputs.working-directory)) != ''
+        run: npx prisma generate
+      - name: Lint (ESLint)
+        run: npm run lint
+      - name: Pruebas unitarias (Jest)
+        run: npm test -- --ci
+      - name: Compilar
+        run: npm run build
+
+  docker:
+    name: Imagen Docker (SHA)
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.name.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Nombre de la imagen
+        id: name
+        run: |
+          base="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/coworkspace-${{ inputs.service-name }}"
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+          echo "image=$base:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.working-directory }}
+          push: true
+          tags: |
+            ${{ steps.name.outputs.base }}:${{ github.sha }}
+            ${{ steps.name.outputs.base }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=${{ inputs.service-name }}
+          cache-to: type=gha,mode=max,scope=${{ inputs.service-name }}
+
+  deploy:
+    name: Despliegue en Render
+    needs: [test, docker]
+    # Push a main: tras publicar la imagen. repository_dispatch: redespliega la imagen actual.
+    if: |
+      always() && (
+        (github.event_name == 'push' && needs.docker.result == 'success') ||
+        github.event_name == 'repository_dispatch'
+      )
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
+      url: https://coworkspace-web.onrender.com
+    steps:
+      - name: Disparar el despliegue en Render
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+          IMAGE: ${{ needs.docker.outputs.image }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::warning::Falta el secret RENDER_DEPLOY_HOOK: no se despliega ${{ inputs.service-name }}"
+            exit 0
+          fi
+          if [ -n "$IMAGE" ]; then
+            ENCODED=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "$IMAGE")
+            curl -fsS -X POST "${HOOK}&imgURL=${ENCODED}" > /dev/null
+            echo "Render despliega $IMAGE" >> "$GITHUB_STEP_SUMMARY"
+          else
+            curl -fsS -X POST "$HOOK" > /dev/null
+            echo "Render redespliega la imagen actual de ${{ inputs.service-name }}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  notify:
+    name: Avisar al gateway
+    needs: deploy
+    if: inputs.notify-repo != '' && needs.deploy.result == 'success' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Enviar repository_dispatch
+        env:
+          # Mismo repositorio: basta el GITHUB_TOKEN. Otro repositorio: token guardado como secret.
+          TOKEN: ${{ secrets.DISPATCH_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          curl -fsS -X POST "https://api.github.com/repos/${{ inputs.notify-repo }}/dispatches" \
+            -H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.github+json" \
+            -d '{"event_type":"service-deployed","client_payload":{"service":"${{ inputs.service-name }}","sha":"${{ github.sha }}"}}'
+          echo "Aviso enviado a ${{ inputs.notify-repo }}" >> "$GITHUB_STEP_SUMMARY"

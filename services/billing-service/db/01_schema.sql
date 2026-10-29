@@ -64,6 +64,26 @@ CREATE TABLE "extra_charges" (
     CONSTRAINT "extra_charges_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "plan_payments" (
+    "id" TEXT NOT NULL,
+    "member_id" TEXT NOT NULL,
+    "plan_id" TEXT NOT NULL,
+    "plan_code" TEXT NOT NULL,
+    "plan_name" TEXT NOT NULL,
+    "amount" INTEGER NOT NULL,
+    "status" "ChargeStatus" NOT NULL DEFAULT 'PENDING',
+    "reference" TEXT,
+    "transaction_id" TEXT,
+    "payment_method" TEXT,
+    "failure_reason" TEXT,
+    "activated" BOOLEAN NOT NULL DEFAULT false,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "plan_payments_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "invoices_electronic_number_key" ON "invoices"("electronic_number");
 
@@ -78,3 +98,9 @@ CREATE UNIQUE INDEX "extra_charges_booking_id_key" ON "extra_charges"("booking_i
 
 -- CreateIndex
 CREATE INDEX "extra_charges_member_id_idx" ON "extra_charges"("member_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "plan_payments_reference_key" ON "plan_payments"("reference");
+
+-- CreateIndex
+CREATE INDEX "plan_payments_member_id_created_at_idx" ON "plan_payments"("member_id", "created_at");

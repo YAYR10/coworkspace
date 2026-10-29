@@ -1,0 +1,35 @@
+# Llama al pipeline reutilizable con los datos de este microservicio.
+name: api-gateway
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/api-gateway/**'
+      - '.github/workflows/microservicio.yml'
+      - '.github/workflows/svc-api-gateway.yml'
+  pull_request:
+    paths:
+      - 'services/api-gateway/**'
+      - '.github/workflows/microservicio.yml'
+      - '.github/workflows/svc-api-gateway.yml'
+  # Otro microservicio se desplegó (repository_dispatch): el gateway se redespliega
+  repository_dispatch:
+    types: [service-deployed]
+  workflow_dispatch:
+
+concurrency:
+  group: despliegue-api-gateway
+  cancel-in-progress: ${{ github.event_name == 'repository_dispatch' }}
+
+jobs:
+  pipeline:
+    uses: ./.github/workflows/microservicio.yml
+    permissions:
+      contents: write
+      packages: write
+    with:
+      service-name: api-gateway
+      working-directory: services/api-gateway
+    secrets:
+      RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_GATEWAY }}

@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict S9D2sgKUHiBwsW8gbaZxC6bcPCpNra2jZO5oCsezVX1M15udZyvlmOlT5mZfR5d
+\restrict 2PrHtSAIzfOKubuIBcjg2SdluJw9JMTHbi5da5r0uk2ljqbf2dvCW74XDM0tpGa
 
 
 SET statement_timeout = 0;
@@ -112,11 +112,11 @@ CREATE TABLE membership.subscriptions (
 -- Data for Name: members; Type: TABLE DATA; Schema: membership; Owner: -
 --
 
-INSERT INTO membership.members VALUES ('a0000000-0000-4000-8000-000000000001', 'Admin Demo', 'admin.demo@coworkspace.co', '$2a$10$szHiCP/sWYZ3k4YXcGbCIe.pVBZ7ADx4vcNi2qklbGLmZF49bPuci', 'ADMIN', NULL, 'Colombia', 'Montería', '2026-06-30 22:32:00.661');
-INSERT INTO membership.members VALUES ('a0000000-0000-4000-8000-000000000002', 'Luis Peña', 'coordinador@coworkspace.co', '$2a$10$szHiCP/sWYZ3k4YXcGbCIe.pVBZ7ADx4vcNi2qklbGLmZF49bPuci', 'COORDINATOR', '+57 301 000 0002', 'Colombia', 'Bogotá', '2026-07-10 22:32:00.661');
-INSERT INTO membership.members VALUES ('a0000000-0000-4000-8000-000000000003', 'Ana Gómez', 'ana@demo.co', '$2a$10$szHiCP/sWYZ3k4YXcGbCIe.pVBZ7ADx4vcNi2qklbGLmZF49bPuci', 'MEMBER', '+57 300 123 4567', 'Colombia', 'Montería', '2026-07-30 22:32:00.661');
-INSERT INTO membership.members VALUES ('a0000000-0000-4000-8000-000000000004', 'Carlos Ruiz', 'carlos@demo.co', '$2a$10$szHiCP/sWYZ3k4YXcGbCIe.pVBZ7ADx4vcNi2qklbGLmZF49bPuci', 'MEMBER', NULL, 'Colombia', 'Bogotá', '2026-08-29 22:32:00.661');
-INSERT INTO membership.members VALUES ('a0000000-0000-4000-8000-000000000005', 'Mariana López', 'mariana@demo.co', '$2a$10$szHiCP/sWYZ3k4YXcGbCIe.pVBZ7ADx4vcNi2qklbGLmZF49bPuci', 'MEMBER', NULL, 'Colombia', 'Bogotá', '2026-08-14 22:32:00.661');
+INSERT INTO membership.members VALUES ('a0000000-0000-4000-8000-000000000001', 'Admin Demo', 'admin.demo@coworkspace.co', '$2a$10$szHiCP/sWYZ3k4YXcGbCIe.pVBZ7ADx4vcNi2qklbGLmZF49bPuci', 'ADMIN', NULL, 'Colombia', 'Montería', '2026-07-01 20:13:26.103');
+INSERT INTO membership.members VALUES ('a0000000-0000-4000-8000-000000000002', 'Luis Peña', 'coordinador@coworkspace.co', '$2a$10$szHiCP/sWYZ3k4YXcGbCIe.pVBZ7ADx4vcNi2qklbGLmZF49bPuci', 'COORDINATOR', '+57 301 000 0002', 'Colombia', 'Bogotá', '2026-07-11 20:13:26.103');
+INSERT INTO membership.members VALUES ('a0000000-0000-4000-8000-000000000003', 'Ana Gómez', 'ana@demo.co', '$2a$10$szHiCP/sWYZ3k4YXcGbCIe.pVBZ7ADx4vcNi2qklbGLmZF49bPuci', 'MEMBER', '+57 300 123 4567', 'Colombia', 'Montería', '2026-07-31 20:13:26.103');
+INSERT INTO membership.members VALUES ('a0000000-0000-4000-8000-000000000004', 'Carlos Ruiz', 'carlos@demo.co', '$2a$10$szHiCP/sWYZ3k4YXcGbCIe.pVBZ7ADx4vcNi2qklbGLmZF49bPuci', 'MEMBER', NULL, 'Colombia', 'Bogotá', '2026-08-30 20:13:26.103');
+INSERT INTO membership.members VALUES ('a0000000-0000-4000-8000-000000000005', 'Mariana López', 'mariana@demo.co', '$2a$10$szHiCP/sWYZ3k4YXcGbCIe.pVBZ7ADx4vcNi2qklbGLmZF49bPuci', 'MEMBER', NULL, 'Colombia', 'Bogotá', '2026-08-15 20:13:26.103');
 
 
 --
@@ -139,9 +139,9 @@ INSERT INTO membership.membership_plans VALUES ('90000000-0000-4000-8000-0000000
 -- Data for Name: subscriptions; Type: TABLE DATA; Schema: membership; Owner: -
 --
 
-INSERT INTO membership.subscriptions VALUES ('b0000000-0000-4000-8000-000000000003', 'a0000000-0000-4000-8000-000000000003', '90000000-0000-4000-8000-000000000001', 'ACTIVE', true, '2026-08-01 22:32:00.662', '2026-10-30 22:32:00.662');
-INSERT INTO membership.subscriptions VALUES ('b0000000-0000-4000-8000-000000000004', 'a0000000-0000-4000-8000-000000000004', '90000000-0000-4000-8000-000000000003', 'ACTIVE', true, '2026-08-31 22:32:00.662', '2026-10-30 22:32:00.662');
-INSERT INTO membership.subscriptions VALUES ('b0000000-0000-4000-8000-000000000005', 'a0000000-0000-4000-8000-000000000005', '90000000-0000-4000-8000-000000000004', 'EXPIRED', false, '2026-08-15 22:32:00.662', '2026-10-14 22:32:00.662');
+INSERT INTO membership.subscriptions VALUES ('b0000000-0000-4000-8000-000000000003', 'a0000000-0000-4000-8000-000000000003', '90000000-0000-4000-8000-000000000001', 'ACTIVE', true, '2026-08-02 20:13:26.104', '2026-10-31 20:13:26.104');
+INSERT INTO membership.subscriptions VALUES ('b0000000-0000-4000-8000-000000000004', 'a0000000-0000-4000-8000-000000000004', '90000000-0000-4000-8000-000000000003', 'ACTIVE', true, '2026-09-01 20:13:26.104', '2026-10-31 20:13:26.104');
+INSERT INTO membership.subscriptions VALUES ('b0000000-0000-4000-8000-000000000005', 'a0000000-0000-4000-8000-000000000005', '90000000-0000-4000-8000-000000000004', 'EXPIRED', false, '2026-08-16 20:13:26.104', '2026-10-15 20:13:26.104');
 
 
 --
@@ -232,5 +232,5 @@ ALTER TABLE ONLY membership.subscriptions
 -- PostgreSQL database dump complete
 --
 
-\unrestrict S9D2sgKUHiBwsW8gbaZxC6bcPCpNra2jZO5oCsezVX1M15udZyvlmOlT5mZfR5d
+\unrestrict 2PrHtSAIzfOKubuIBcjg2SdluJw9JMTHbi5da5r0uk2ljqbf2dvCW74XDM0tpGa
 

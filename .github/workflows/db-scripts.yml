@@ -10,6 +10,7 @@ on:
       - 'services/*/prisma/schema.prisma'
       - 'services/*/db/02_seed.sql'
       - 'scripts/db-scripts.sh'
+      - 'services/*/docker-compose.yml'
       - '.github/workflows/db-scripts.yml'
 
 permissions:
