@@ -16,6 +16,7 @@ Forma parte de **CoworkSpace**, plataforma de microservicios para una red de esp
 - Factura electrónica (FE-…) por cada periodo de membresía, idempotente por periodo.
 - Decide el cargo adicional de cada reserva según el plan (paso de la saga).
 - Con llaves de Wompi: deja el cargo PENDING, genera el checkout firmado, verifica la transacción y recibe el webhook firmado.
+- Pago de membresías con Wompi: checkout firmado; al aprobarse llama a Membership (`POST /subscriptions/internal/activate`) y publica `billing.plan.paid`.
 - Sin llaves: pasarela simulada con cupo (EXTRA_CHARGE_APPROVAL_LIMIT).
 
 ## Tecnologías
@@ -53,6 +54,9 @@ Todas las rutas se consumen a través del API Gateway (prefijo `/api`), que vali
 | GET | `/api/charges` | Admin | Todos los cargos |
 | GET | `/api/charges/booking/:bookingId` | Miembro | Cargo de una reserva |
 | POST | `/api/charges/booking/:bookingId/checkout` | Miembro | Abrir el checkout de Wompi |
+| POST | `/api/payments/plans/checkout` | Miembro | Pagar una membresía: devuelve el checkout de Wompi; al aprobarse, activa el plan en Membership |
+| GET | `/api/payments/plans/me` | Miembro | Mis pagos de membresía |
+| GET | `/api/payments/plans` | Admin | Todos los pagos de membresía |
 | GET | `/api/payments/status` | Público | Pasarela activa (wompi o simulada) |
 | POST | `/api/payments/wompi/verify` | Miembro | Verificar la transacción al volver del checkout |
 | POST | `/api/payments/wompi/webhook` | Público (firmado) | Evento transaction.updated de Wompi |
@@ -61,7 +65,7 @@ Todas las rutas se consumen a través del API Gateway (prefijo `/api`), que vali
 
 ## Eventos
 
-**Publica:** `billing.charge.approved`, `billing.charge.rejected`, `billing.charge.pending`, `billing.invoice.paid`
+**Publica:** `billing.plan.paid`, `billing.plan.rejected`, `billing.charge.approved`, `billing.charge.rejected`, `billing.charge.pending`, `billing.invoice.paid`
 
 **Consume:** `membership.activated`, `membership.expired`, `booking.created`, `booking.cancelled`
 
@@ -69,7 +73,7 @@ Los eventos viajan por Redis Pub/Sub y se copian en el stream `coworkspace:event
 
 ## Base de datos
 
-Tablas: `member_plans`, `invoices`, `extra_charges`.
+Tablas: `member_plans`, `invoices`, `extra_charges`, `plan_payments`.
 
 | Archivo | Contenido |
 |---|---|
@@ -98,6 +102,7 @@ Restaurar el respaldo: `psql "$DATABASE_URL" -f db/03_backup.sql`. Los scripts s
 | `WOMPI_INTEGRITY_SECRET` | Secreto de integridad para firmar el checkout | — |
 | `WOMPI_EVENTS_SECRET` | Secreto de eventos para validar el webhook | — |
 | `WOMPI_API_URL` | API de Wompi (por defecto sandbox o producción según la llave) | — |
+| `MEMBERSHIP_SERVICE_URL` | Membership (datos del plan y activación después del pago) | `http://localhost:3001` |
 | `PAYMENT_REDIRECT_URL` | Página a la que vuelve el checkout | `http://localhost:5173/pago` |
 
 Las credenciales se configuran como variables de entorno en Render; ningún secreto está en el código.

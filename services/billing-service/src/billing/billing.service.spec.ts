@@ -19,7 +19,7 @@ describe('BillingService', () => {
     events = { publish: jest.fn(), subscribe: jest.fn() };
     delete process.env.WOMPI_PUBLIC_KEY;
     delete process.env.WOMPI_INTEGRITY_SECRET;
-    service = new BillingService(prisma, events, new PaymentGatewayService(), new WompiService());
+    service = new BillingService(prisma, events, new PaymentGatewayService(), new WompiService(), {} as any);
   });
 
   it('aprueba sin cargo cuando el recurso está incluido en el plan', async () => {

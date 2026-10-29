@@ -14,6 +14,7 @@ import { PlansController } from './plans/plans.controller';
 import { PlansService } from './plans/plans.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { SubscriptionsController } from './subscriptions/subscriptions.controller';
+import { PaymentGate } from './subscriptions/payment-gate.service';
 import { SubscriptionsService } from './subscriptions/subscriptions.service';
 
 @Module({
@@ -29,6 +30,6 @@ import { SubscriptionsService } from './subscriptions/subscriptions.service';
     }),
   ],
   controllers: [AuthController, MembersController, PlansController, SubscriptionsController, HealthController, MetricsController],
-  providers: [AuthService, MembersService, PlansService, SubscriptionsService, { provide: APP_GUARD, useClass: InternalKeyGuard }],
+  providers: [AuthService, MembersService, PlansService, SubscriptionsService, PaymentGate, { provide: APP_GUARD, useClass: InternalKeyGuard }],
 })
 export class AppModule {}

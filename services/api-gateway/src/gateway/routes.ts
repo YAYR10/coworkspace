@@ -55,4 +55,4 @@ export const PUBLIC_ROUTES: { method: string; pattern: RegExp }[] = [
 ];
 
 /** Endpoints internos entre servicios que nunca se exponen hacia afuera. */
-export const INTERNAL_ONLY: RegExp[] = [/^\/api\/subscriptions\/member\//, /^\/api\/members\/[^/]+\/contact\/?$/];
+export const INTERNAL_ONLY: RegExp[] = [/^\/api\/subscriptions\/member\//, /^\/api\/subscriptions\/internal\//, /^\/api\/members\/[^/]+\/contact\/?$/];

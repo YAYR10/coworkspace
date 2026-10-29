@@ -59,6 +59,12 @@ describe('AuthMiddleware', () => {
     expect(next).not.toHaveBeenCalled();
   });
 
+  it('la activación interna de planes (después del pago) no se expone', () => {
+    const token = jwt.sign({ sub: 'm-1', role: 'ADMIN', email: 'a@b.co' }, SECRET);
+    const { res } = run({ method: 'POST', path: '/api/subscriptions/internal/activate', headers: { authorization: `Bearer ${token}` } });
+    expect(res.statusCode).toBe(404);
+  });
+
   it('la disponibilidad de un espacio es pública, las reservas no', () => {
     expect(run({ path: '/api/bookings/availability' }).next).toHaveBeenCalled();
     expect(run({ path: '/api/bookings/me' }).res.statusCode).toBe(401);

@@ -5,6 +5,7 @@ import { EventBus } from '../events/event-bus.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser, isStaff } from '../common/current-user';
 import { PaymentGatewayService } from './payment-gateway.service';
+import { PlanPaymentsService } from './plan-payments.service';
 import { WompiService, WompiTransaction } from './wompi.service';
 
 export interface MembershipActivated {
@@ -35,6 +36,7 @@ export class BillingService implements OnModuleInit {
     private readonly events: EventBus,
     private readonly payments: PaymentGatewayService,
     private readonly wompi: WompiService,
+    private readonly plans: PlanPaymentsService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -187,10 +189,11 @@ export class BillingService implements OnModuleInit {
   async verifyTransaction(user: AuthUser, transactionId: string) {
     const tx = await this.wompi.getTransaction(transactionId);
     if (!tx) throw new BadGatewayException('No pudimos consultar el pago en Wompi. Intenta de nuevo.');
+    if (PlanPaymentsService.paymentIdOf(tx.reference)) return this.plans.verify(user, tx);
     const charge = await this.prisma.extraCharge.findUnique({ where: { id: tx.reference.split('.')[0] } });
     if (!charge || (charge.memberId !== user.id && !isStaff(user))) throw new NotFoundException('Pago no encontrado');
     const settled = await this.settle(charge, tx);
-    return { status: settled.status, bookingId: settled.bookingId, amount: settled.amount, transactionStatus: tx.status, message: tx.status_message ?? null };
+    return { kind: 'booking' as const, status: settled.status, bookingId: settled.bookingId, amount: settled.amount, transactionStatus: tx.status, message: tx.status_message ?? null };
   }
 
   /** Webhook de Wompi (evento transaction.updated), validado con la firma del secreto de eventos. */
@@ -201,6 +204,10 @@ export class BillingService implements OnModuleInit {
     }
     if (event.event !== 'transaction.updated') return { ok: true };
     const tx = event.data?.transaction as WompiTransaction;
+    if (tx?.reference && PlanPaymentsService.paymentIdOf(tx.reference)) {
+      await this.plans.fromWebhook(tx);
+      return { ok: true };
+    }
     const charge = tx?.reference ? await this.prisma.extraCharge.findUnique({ where: { id: tx.reference.split('.')[0] } }) : null;
     if (!charge) return { ok: true };
     await this.settle(charge, tx);

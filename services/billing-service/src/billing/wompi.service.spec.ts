@@ -49,7 +49,7 @@ describe('BillingService con Wompi', () => {
       },
     };
     events = { publish: jest.fn(), subscribe: jest.fn() };
-    service = new BillingService(prisma, events, new PaymentGatewayService(), new WompiService());
+    service = new BillingService(prisma, events, new PaymentGatewayService(), new WompiService(), {} as any);
   });
   afterEach(() => {
     delete process.env.WOMPI_PUBLIC_KEY;
