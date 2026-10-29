@@ -46,7 +46,7 @@ on:
 
 jobs:
   test:
-    name: Pruebas · ${{ inputs.service-name }}
+    name: Pruebas (lint, Jest, build)
     if: github.event_name != 'repository_dispatch'
     runs-on: ubuntu-latest
     defaults:
@@ -72,7 +72,7 @@ jobs:
         run: npm run build
 
   docker:
-    name: Imagen · ${{ inputs.service-name }}
+    name: Imagen Docker (SHA)
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -109,7 +109,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ inputs.service-name }}
 
   deploy:
-    name: Despliegue · ${{ inputs.service-name }}
+    name: Despliegue en Render
     needs: [test, docker]
     # Push a main: tras publicar la imagen. repository_dispatch: redespliega la imagen actual.
     if: |
@@ -148,7 +148,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: repository_dispatch → ${{ inputs.notify-repo }}
+      - name: Enviar repository_dispatch
         env:
           # Mismo repositorio: basta el GITHUB_TOKEN. Otro repositorio: token guardado como secret.
           TOKEN: ${{ secrets.DISPATCH_TOKEN || secrets.GITHUB_TOKEN }}
