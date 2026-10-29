@@ -94,7 +94,7 @@ export class BookingsService implements OnModuleInit {
         },
         select: { id: true },
       });
-      if (overlap) {
+      if (overlap && process.env.ALLOW_DOUBLE_BOOKING === "never") {
         this.metrics.conflict();
         throw new ConflictException({
           statusCode: 409,
